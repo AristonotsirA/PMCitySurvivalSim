@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>도시 채팅</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script>(function(){try{var t=localStorage.getItem('pmc_theme')||'system';document.documentElement.dataset.theme=t}catch(_){}})()</script>
+<style>
+:root{
+  --bg:#f6f4f1;--panel:#ffffff;--panel2:#efece7;--line:#e0dbd3;--text:#1f1d1a;--muted:#6f6a62;--accent:#b0332f;--accent2:#8a2622;
+  --bubble:#ffffff;--mine:#b0332f;--mine-text:#fff;--narr:#5d5850;--shadow:0 1px 3px rgba(0,0,0,.08);--ring-bg:#e6e1d9;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141312;--panel:#1d1b19;--panel2:#262320;--line:#34302b;--text:#ece8e1;--muted:#a19a8f;--accent:#d2524b;--accent2:#e06a62;
+  --bubble:#24211e;--mine:#a83a33;--mine-text:#fff;--narr:#bdb5a8;--shadow:none;--ring-bg:#3a3530;
+}}
+:root[data-theme="dark"]{
+  --bg:#141312;--panel:#1d1b19;--panel2:#262320;--line:#34302b;--text:#ece8e1;--muted:#a19a8f;--accent:#d2524b;--accent2:#e06a62;
+  --bubble:#24211e;--mine:#a83a33;--mine-text:#fff;--narr:#bdb5a8;--shadow:none;--ring-bg:#3a3530;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.65 "Pretendard Variable",Pretendard,system-ui,-apple-system,"Malgun Gothic",sans-serif;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+textarea{resize:vertical}
+a{color:var(--accent)}
+.hidden{display:none!important}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 10px;font-size:13px}
+.muted{color:var(--muted)}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}
+
+/* 홈 */
+#home{min-height:100%;padding:28px 0 40px}
+.brand{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:6px}
+.brand h1{margin:0;font-size:28px;letter-spacing:-.5px}
+.brand h1 span{color:var(--accent)}
+.tagline{color:var(--muted);margin:0 0 20px}
+.toprow{display:flex;gap:8px;flex-wrap:wrap}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 26px}
+.mode{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;box-shadow:var(--shadow)}
+.mode:hover{border-color:var(--accent)}
+.mode b{display:block;font-size:16px;margin-bottom:4px}
+.mode small{color:var(--muted);line-height:1.45;display:block}
+@media (max-width:560px){.modes{grid-template-columns:1fr}}
+h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
+.rooms{display:flex;flex-direction:column;gap:8px}
+.room{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left;width:100%}
+.room:hover{border-color:var(--accent)}
+.room .meta{flex:1;min-width:0}
+.room .meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room .meta small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stack{display:flex}
+.stack .av{margin-left:-8px;border:2px solid var(--panel)}
+.stack .av:first-child{margin-left:0}
+.foot{margin-top:30px;color:var(--muted);font-size:12.5px;line-height:1.6}
+
+/* 아바타·호감도 링 */
+.av{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex:none;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.ringav{position:relative;width:46px;height:46px;flex:none;background:none;border:0;padding:0}
+.ringav svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ringav .av{position:absolute;left:6px;top:6px}
+.ringav .num{position:absolute;right:-4px;bottom:-3px;font-size:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:0 4px;line-height:15px}
+
+/* 채팅 */
+#chat{height:100%;display:flex;flex-direction:column}
+.chead{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.chead .row{display:flex;align-items:center;gap:8px;padding:8px 0}
+.chead .ttl{flex:1;min-width:0}
+.chead .ttl b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chead .ttl small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{border:0;background:none;border-radius:8px;padding:6px 9px;font-size:18px;line-height:1}
+.iconbtn:hover{background:var(--panel2)}
+.cast{display:flex;gap:10px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin}
+#log{flex:1;overflow-y:auto}
+#log .wrap{padding-top:16px;padding-bottom:16px;display:flex;flex-direction:column;gap:10px}
+.msg{position:relative}
+.narr{color:var(--narr);white-space:pre-wrap;padding:2px 4px}
+.narr em,.ubub em{font-style:italic;opacity:.9}
+.line{display:flex;gap:10px;align-items:flex-start}
+.line .who{position:relative;padding-top:12px}
+.emo{position:absolute;top:-4px;left:50%;transform:translateX(-50%);font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 5px;line-height:18px;white-space:nowrap}
+.line .body{min-width:0;max-width:calc(100% - 50px)}
+.line .nm{font-size:12.5px;color:var(--muted);margin:0 0 2px 2px}
+.bub{background:var(--bubble);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:8px 12px;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;box-shadow:var(--shadow)}
+.mine{display:flex;justify-content:flex-end}
+.ubub{background:var(--mine);color:var(--mine-text);border-radius:14px 4px 14px 14px;padding:8px 12px;max-width:80%;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.ubub .act{opacity:.85;font-style:italic}
+.sysmsg{text-align:center;color:var(--muted);font-size:13px}
+.sysmsg.err{color:var(--accent)}
+.aimsg.sel,.usermsg.sel{outline:2px dashed color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:4px;border-radius:8px}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mine + .tools,.usermsg .tools{justify-content:flex-end}
+.typing{color:var(--muted);font-size:13px}
+.typing::after{content:'…';animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
+.notice{font-size:12.5px;color:var(--muted);border-left:3px solid var(--accent);padding:4px 10px;background:var(--panel)}
+
+.inbar{border-top:1px solid var(--line);background:var(--bg);padding:8px 0 calc(8px + env(safe-area-inset-bottom))}
+.inbar .wrap{display:flex;flex-direction:column;gap:6px}
+.helpers{display:flex;gap:6px;align-items:center}
+.helpers .sp{flex:1}
+.inrow{display:flex;gap:8px;align-items:flex-end}
+#inp{min-height:44px;max-height:180px;resize:none;border-radius:14px}
+#sendBtn{height:44px;border-radius:14px;padding:0 18px;white-space:nowrap;flex:none}
+@media (min-width:760px){body{font-size:16px}}
+
+/* 모달 */
+#modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+@keyframes fade{from{opacity:0}}
+#modal .box{background:var(--bg);width:100%;max-width:640px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+@media (min-width:700px){#modal{align-items:center}#modal .box{border-radius:18px}}
+.box h3{margin:0 0 12px;font-size:18px}
+.box label{display:block;margin:10px 0 4px;font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px}
+.tabs button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.pick{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px;text-align:left}
+.pick.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.pick small{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px;text-align:left;width:100%}
+.card.on{border-color:var(--accent)}
+.card small{color:var(--muted);display:block;margin-top:2px}
+.list{display:flex;flex-direction:column;gap:8px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.prof dt{font-size:12.5px;color:var(--muted);margin-top:10px}
+.prof dd{margin:2px 0 0}
+.flag{font-size:12px;color:var(--accent);margin-top:10px}
+.theme-btn{white-space:nowrap}
+</style>
+</head>
+<body>
+<!--__DATA__-->
+
+<section id="home" class="wrap">
+  <div class="brand">
+    <h1>도시 <span>채팅</span></h1>
+    <div class="toprow">
+      <button class="btn small theme-btn" id="themeBtn"></button>
+      <button class="btn small" id="setBtn">⚙ AI 설정</button>
+    </div>
+  </div>
+  <p class="tagline">Project Moon의 「도시」에서, 림버스 컴퍼니의 수감자와 도서관의 사서들을 만나 이야기를 나눕니다.</p>
+  <div id="profileLine" class="muted"></div>
+  <div class="modes">
+    <button class="mode" data-new="free"><b>🗺 자유 모드</b><small>장소를 고르면 그곳에 있을 법한 인물이 나타납니다. 만난 사람 모두의 호감도가 쌓입니다.</small></button>
+    <button class="mode" data-new="duo"><b>💬 1:1 대화</b><small>한 사람과 대화합니다. 장소·차림·상황을 정할 수 있습니다.</small></button>
+    <button class="mode" data-new="story"><b>📖 스토리 모드</b><small>준비된 시나리오나 직접 쓴 시나리오로, 최대 6명이 함께 등장합니다.</small></button>
+  </div>
+  <h2>대화방</h2>
+  <div class="rooms" id="rooms"></div>
+  <div class="toprow" style="margin-top:14px">
+    <button class="btn small" id="exportBtn">대화 내보내기</button>
+    <button class="btn small" id="importBtn">대화 가져오기</button>
+    <a class="btn small" href="legacy/" style="text-decoration:none">구 버전 (카드 서바이벌)</a>
+  </div>
+  <p class="foot">API 키는 이 브라우저(localStorage)에만 저장되고, 고른 AI 서비스 외에는 어디에도 보내지 않습니다. 대화 내보내기 파일에도 키는 들어가지 않습니다.<br>
+  로보토미 코퍼레이션·라이브러리 오브 루이나·림버스 컴퍼니와 모든 캐릭터의 저작권은 Project Moon에 있습니다. 이 사이트는 비공식 팬 창작이며, 원작 대사를 싣지 않습니다.</p>
+</section>
+
+<section id="chat" class="hidden">
+  <header class="chead">
+    <div class="wrap">
+      <div class="row">
+        <button class="iconbtn" id="backBtn" title="목록">←</button>
+        <div class="ttl"><b id="roomTitle"></b><small id="sceneLine"></small></div>
+        <button class="iconbtn" id="roomMenuBtn" title="대화방 메뉴">⋯</button>
+      </div>
+      <div class="cast" id="cast"></div>
+    </div>
+  </header>
+  <main id="log"><div class="wrap" id="logInner"></div></main>
+  <footer class="inbar">
+    <div class="wrap">
+      <div class="helpers">
+        <button class="btn small" id="qSay" title="대사 넣기">" " 대사</button>
+        <button class="btn small" id="qAct" title="행동 넣기">* * 행동</button>
+        <span class="sp"></span>
+        <button class="btn small" id="contBtn" title="말없이 장면을 이어서">⏩ 이어서</button>
+      </div>
+      <div class="inrow">
+        <textarea id="inp" rows="1" placeholder='*문을 연다* "안녕하세요?"'></textarea>
+        <button class="btn primary" id="sendBtn">보내기</button>
+      </div>
+    </div>
+  </footer>
+</section>
+
+<div id="modal" class="hidden"><div class="box" id="mbox"></div></div>
+
+<script>
+'use strict';
+/* ───────── 데이터 ───────── */
+let D = window.__PMC_DATA__ || null;
+let CH = {}, NAME2ID = {};
+function indexData() {
+  CH = {}; NAME2ID = {};
+  for (const c of D.characters) {
+    CH[c.id] = c;
+    NAME2ID[c.name] = c.id; NAME2ID[c.id] = c.id;
+    for (const e of c.en || []) NAME2ID[e.toLowerCase()] = c.id;
+  }
+}
+const LOC = id => (D.world.locations.find(l => l.id === id) || null);
+const FAC = id => (D.factions.find(f => f.id === id) || null);
+
+/* ───────── 유틸 ───────── */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
+};
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+function batchim(w) { const c = w.charCodeAt(w.length - 1); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; }
+const josa = (w, a, b) => w + (batchim(w) ? a : b);
+
+/* ───────── 저장 ───────── */
+const ROOMS_KEY = 'pmc_rooms_v1', PROF_KEY = 'pmc_profile', AI_KEY = 'pmc_ai_cfg';
+let rooms = LS.get(ROOMS_KEY, []);
+let profile = LS.get(PROF_KEY, { name: '', role: '해결사', about: '' });
+let cur = null;           // 열린 대화방
+let busy = false, abortCtl = null;
+function saveRooms() {
+  if (!LS.set(ROOMS_KEY, rooms)) sysNote('저장 공간이 부족합니다. 오래된 대화방을 지우거나 내보내 주세요.', true);
+}
+
+/* ───────── 테마 ───────── */
+const THEMES = ['system', 'dark', 'light'], THEME_LABEL = { system: '🖥 시스템', dark: '🌙 다크', light: '☀ 라이트' };
+function themeLabel() { $('#themeBtn').textContent = THEME_LABEL[document.documentElement.dataset.theme || 'system']; }
+$('#themeBtn').onclick = () => {
+  const t = THEMES[(THEMES.indexOf(document.documentElement.dataset.theme || 'system') + 1) % 3];
+  document.documentElement.dataset.theme = t; try { localStorage.setItem('pmc_theme', t); } catch (_) {}
+  themeLabel();
+};
+
+/* ───────── 주인공 ───────── */
+const pname = () => (profile.name || '').trim();
+// 캐릭터가 주인공을 부르는 말
+function callOf(c) {
+  if (!c) return D.world.protagonist.fallback_call;
+  if (c.c.includes('{name}')) return pname() ? c.c.replace('{name}', pname()) : D.world.protagonist.fallback_call;
+  return c.c;
+}
+const fillName = s => String(s).replace(/\{name\}/g, pname() || D.world.protagonist.fallback_call);
+
+/* ───────── 프롬프트 ───────── */
+const POLITE = h => /^(합쇼체|해요체|하오체)/.test(h);
+const EMOS = ['♪', '💦', '💢', '❤', '❗', '❓', '💧', '✨', '…'];
+function coreRules(room) {
+  const me = pname() || '주인공';
+  return `당신은 Project Moon의 「도시」를 무대로 한 롤플레이 채팅의 서술자이자, 장면에 등장하는 모든 인물의 목소리입니다. 플레이어는 주인공 「${me}」(${room.role || profile.role || '해결사'})를 연기합니다.
+
+## 핵심 규칙
+1. [주인공의 행동]은 이미 일어난 일입니다. 그 행동이 실제로 일어났다고 보고, 결과와 주변 반응을 쓰세요. 행동을 대사로 착각해 인물이 그 문장을 「들은」 것처럼 반응하지 마세요.
+2. [주인공의 말]은 주인공이 소리 내어 한 말입니다. 인물들은 그 말에 대답합니다.
+3. 주인공의 대사·행동·생각·결정을 대신 쓰지 마세요. 플레이어가 정하지 않은 주인공의 반응을 만들지 마세요.
+4. 플레이어의 의도를 존중하세요. 플레이어가 정한 사실(장소, 가진 물건, 관계 등)은 그대로 받아들이세요.
+5. 개연성: 장면이 갑자기 튀지 않게 하세요. 장소 이동은 주인공이 움직이거나 이야기가 자연스럽게 이어질 때만 합니다. 그 장소에 있을 법한 인물만 등장합니다.
+6. 말투 고정: 각 인물의 높임(합쇼체/해요체/하오체/반말)과 어미를 프로필 그대로 지키세요. 호감도가 올라 친해져도 말투·높임은 바뀌지 않습니다. 존댓말 인물이 반말로 새거나, 반말 인물이 갑자기 존댓말을 쓰지 않습니다.
+7. 호칭: 각 인물은 주인공을 프로필의 「주인공 호칭」으로만 부릅니다. 존댓말 인물은 주인공을 「너」라고 부르지 않고, 이름에 「아/야」를 붙이지 않습니다. 팬 커뮤니티식 변형 호칭이나 별명을 만들지 마세요.
+8. 대사 속 이름은 한국어로만 씁니다. 영어 이름이나 id(예: yisang)를 대사·서술에 쓰지 마세요.
+9. 인간관계는 프로필의 「관계」를 따릅니다. 인물이 아끼는 사람을 비난하거나 깎아내리게 하지 마세요.
+10. 원작의 실제 대사를 그대로 옮겨 적지 말고, 그 인물다운 새 문장을 쓰세요.
+11. 미성년자(프로필에 표시)가 연루된 성적·선정적 묘사는 어떤 경우에도 쓰지 않습니다. 잔혹한 장면도 과도하게 묘사하지 않습니다.
+12. 응답은 보통 3~8개 단락(서술+대사). 한 번에 너무 먼 미래까지 진행하지 말고, 주인공이 반응할 여지를 남기고 끝내세요.
+13. 도시의 규칙: ${D.world.rules.join(' ')}
+14. 단테는 「째깍」거리는 시계 소리로만 말하며, 그 뜻은 수감자·베르길리우스처럼 알아듣는 이의 반응이나 서술로만 드러납니다. 주인공은 따로 정하지 않은 한 그 소리를 알아듣지 못합니다. 수감자들은 거울로 다른 인격을 덧입을 수 있지만, 장면이 요구할 때만 씁니다.
+
+## 출력 형식 (반드시 지킬 것)
+- 서술은 평범한 문단으로 씁니다. 인물의 몸짓도 서술에 넣습니다.
+- 대사는 한 줄에 하나씩, 반드시 이 형식으로 씁니다:  이름(감정): "대사"
+  감정은 ${EMOS.join(' ')} 중 하나이며, 특별한 감정이 없으면 괄호째 생략합니다:  이름: "대사"
+- 한 줄에 한 인물의 대사만. 대사 줄 안에 서술을 섞지 마세요.
+- 응답의 맨 끝에 다음 숨은 태그를 붙입니다(화면에는 보이지 않음):
+  [호감도 인물id:+n] — 이번 턴에 주인공에 대한 호감이 달라진 인물만, n은 -3~+3. 여러 명이면 태그를 여러 개.
+  [장면 장소|시간|등장 인물id,인물id] — 매 응답 끝에 한 번. 시간은 ${D.world.times.join('/')} 중 하나. 등장은 지금 그 자리에 있는 인물의 id.`;
+}
+function affStage(n) { return n < 20 ? '경계' : n < 40 ? '서먹함' : n < 60 ? '우호적' : n < 80 ? '신뢰' : '깊은 유대'; }
+function profileText(c, room) {
+  const a = room.aff[c.id] ?? c.aff0;
+  return `### ${c.name} (id: ${c.id}) — ${FAC(c.faction)?.name || ''}${c.minor ? ' · 미성년자' : ''}
+- 성격: ${c.p}
+- 말투: [높임: ${c.h}] ${c.s}
+- 태도: ${c.t}
+- 관계: ${c.r}
+- 주인공 호칭: 「${callOf(c)}」${POLITE(c.h) ? ' (「너」·이름+아/야 금지)' : ''}
+- 현재 호감도: ${a}/100 (${affStage(a)}) — 호감도는 마음의 거리일 뿐, 말투와 높임은 바뀌지 않음`;
+}
+// 최근 실제로 말한 인물 (성격 뒤바뀜 방지: 말한 사람의 프로필이 빠지지 않게)
+function recentSpeakers(room, n = 8) {
+  const out = [];
+  for (const m of room.msgs.slice(-n).reverse()) if (m.role === 'ai') for (const b of parseAI(m.text)) if (b.id && !out.includes(b.id)) out.push(b.id);
+  return out;
+}
+function sceneChars(room) {
+  const pool = [...(room.scene.present || []), ...recentSpeakers(room), ...(room.cast || []), ...(room.mode === 'free' ? (LOC(room.loc)?.chars || []) : [])];
+  return [...new Set(pool)].filter(id => CH[id]).slice(0, 10);
+}
+function relevantDocs(room) {
+  const recent = room.msgs.slice(-6).map(m => m.text).join(' ') + ' ' + (room.premise || '') + ' ' + (LOC(room.loc)?.name || '') + ' ' + (room.scene.place || '');
+  return D.world.docs.filter(d => d.keys.some(k => recent.includes(k)));
+}
+function modeGuide(room) {
+  const loc = LOC(room.loc);
+  if (room.mode === 'free') return `## 모드: 자유 모드
+장소는 「${loc?.name}」에서 시작합니다. 이 장소에 있을 법한 인물(${(loc?.chars || []).map(id => CH[id]?.name).join(', ')}) 중 1~3명이 자연스럽게 등장하거나 지나갈 수 있습니다. 한꺼번에 많은 인물을 쏟아내지 마세요. 주인공이 다른 곳으로 가면 그곳에 있을 법한 인물로 바꾸세요.`;
+  if (room.mode === 'duo') {
+    const c = CH[room.cast[0]];
+    return `## 모드: 1:1 대화
+상대는 ${c.name} 한 명입니다. 다른 인물은 꼭 필요할 때만 잠깐 등장합니다.
+장소: ${loc?.name || room.scene.place}${room.outfit ? `\n${c.name}의 차림: ${room.outfit}` : ''}${room.situation ? `\n상황: ${room.situation}` : ''}`;
+  }
+  return `## 모드: 스토리 모드 — 「${room.title}」
+설정: ${room.premise}
+등장 인물: ${room.cast.map(id => CH[id]?.name).join(', ')} (필요하면 장소에 맞는 단역이 잠깐 나올 수 있음)
+이야기를 앞으로 진행시키되, 중요한 선택은 주인공에게 맡기세요.`;
+}
+function sysPrompt(room) {
+  const P = [coreRules(room)];
+  P.push('## 세계관\n' + D.world.summary);
+  const docs = relevantDocs(room);
+  if (docs.length) P.push('## 관련 설정\n' + docs.map(d => `- ${d.title}: ${d.text}`).join('\n'));
+  const chars = sceneChars(room).map(id => CH[id]);
+  const facs = [...new Set(chars.map(c => c.faction))].map(FAC).filter(Boolean);
+  if (facs.length) P.push('## 관련 세력\n' + facs.map(f => `- ${f.name}: ${f.desc}`).join('\n'));
+  P.push('## 장면 인물 상세 프로필\n' + chars.map(c => profileText(c, room)).join('\n\n'));
+  P.push(modeGuide(room));
+  const me = [`이름: ${pname() || '(미정)'}`, `신분: ${room.role || profile.role}`];
+  if (profile.about) me.push(`소개: ${profile.about}`);
+  P.push('## 주인공\n' + me.join('\n'));
+  if (room.summary) P.push('## 지금까지의 줄거리 (요약)\n' + room.summary);
+  P.push(`## 현재 장면\n장소: ${room.scene.place || LOC(room.loc)?.name || '?'} · 시간: ${room.scene.time || '?'} · 등장: ${(room.scene.present || []).map(id => CH[id]?.name).filter(Boolean).join(', ') || '(없음)'}`);
+  if (room.fpNotice > 0) P.push('## 알림\n이 대화방이 만들어진 뒤 인물 설정이 고쳐졌습니다. 이전 답장에 나온 말투·호칭·관계가 지금 프로필과 다르면 이전 것은 무시하고 지금 프로필을 따르세요.');
+  return P.join('\n\n');
+}
+// 마지막 메시지 끝에 붙이는 장면 인물 메모 (높임·호칭·말투·관계)
+function sceneMemo(room) {
+  const lines = sceneChars(room).map(id => {
+    const c = CH[id];
+    return `- ${c.name}: [${c.h}] 호칭 「${callOf(c)}」 · ${c.s.split('. ').slice(0, 2).join('. ').replace(/\.$/, '')} · ${c.r.split('. ')[0].replace(/\.$/, '')}`;
+  });
+  return `\n\n[장면 인물 메모 — 이번 답장에서도 반드시 지킬 것]\n${lines.join('\n')}\n(형식: 이름(감정): "대사" / 끝에 [호감도 id:+n]·[장면 장소|시간|등장 id,…] 태그)`;
+}
+
+/* ───────── 입력 분리: 행동(*별표*) / 말("따옴표") ───────── */
+function splitInput(t) {
+  const acts = [], says = [];
+  let rest = t.replace(/\*([^*]+)\*/g, (_, a) => (acts.push(a.trim()), ' '))
+              .replace(/["“]([^"”]+)["”]/g, (_, s) => (says.push(s.trim()), ' '));
+  rest = rest.replace(/\s+/g, ' ').trim();
+  if (rest) {
+    // 표시 없는 글: 「~다.」로 끝나는 서술은 행동, 나머지는 말로 본다
+    if (/(다|었다|았다|했다|한다|간다|본다)[.!…]*$/.test(rest) && !/[?？]$/.test(rest)) acts.push(rest); else says.push(rest);
+  }
+  return { acts, says };
+}
+function fmtUser(t) {
+  const { acts, says } = splitInput(t);
+  const out = [];
+  if (acts.length) out.push('[주인공의 행동] ' + acts.join(' / '));
+  if (says.length) out.push('[주인공의 말] ' + says.map(s => `"${s}"`).join(' '));
+  return out.join('\n') || t;
+}
+
+/* ───────── AI 응답 해석 ───────── */
+const TAG_RE = /\[(호감도|장면)\s+([^\]]*)\]/g;
+function extractTags(text) {
+  const aff = [], scenes = [];
+  const body = text.replace(TAG_RE, (_, k, v) => {
+    if (k === '호감도') for (const part of v.split(/[,\s]+(?=[^:\s]+:)/)) {
+      const m = part.match(/^\s*([^:]+?)\s*:\s*([+-]?\d+)/); if (m) aff.push([m[1], +m[2]]);
+    } else scenes.push(v);
+    return '';
+  }).replace(/\n{3,}/g, '\n\n').trim();
+  return { body, aff, scene: scenes.pop() || null };
+}
+function resolveId(s) { if (!s) return null; s = s.trim(); return NAME2ID[s] || NAME2ID[s.toLowerCase()] || null; }
+const LINE_RE = /^\s*(?:\*\*)?([가-힣A-Za-z][가-힣A-Za-z ·.'-]{0,15}?)(?:\*\*)?\s*(?:[(（]\s*([^)）]{1,6})\s*[)）])?\s*[:：]\s*(.+)$/;
+function parseAI(text) {
+  const out = [];
+  for (const raw of String(text).split('\n')) {
+    const line = raw.trim(); if (!line) continue;
+    const m = line.match(LINE_RE);
+    const id = m && resolveId(m[1]);
+    if (id) {
+      let say = m[3].trim();
+      const q = say.match(/^["“](.*)["”]$/s); if (q) say = q[1];
+      out.push({ id, emo: (m[2] || '').trim(), say });
+    } else {
+      const last = out[out.length - 1];
+      if (last && !last.id) last.text += '\n' + line; else out.push({ text: line });
+    }
+  }
+  return out;
+}
+
+/* ───────── 후처리: 영어 이름·호칭 변형·'너' 교정 ───────── */
+function postprocess(body) {
+  // 1) 영어 이름·id → 한국어 이름 (서술·대사 모두)
+  for (const c of D.characters) {
+    for (const e of [...(c.en || []), c.id]) {
+      const re = new RegExp(`(^|[^A-Za-z])${e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z])`, 'gi');
+      body = body.replace(re, (_, p) => p + c.name);
+    }
+  }
+  // 2) 대사 줄마다: 존댓말 인물이 '너'·'이름아/야'로 부르면 그 인물의 호칭으로 고친다 (다른 낱말은 건드리지 않음)
+  const nm = pname();
+  return body.split('\n').map(line => {
+    const m = line.match(LINE_RE); const id = m && resolveId(m[1]); const c = id && CH[id];
+    if (!c || !POLITE(c.h)) return line;
+    const call = callOf(c);
+    let say = m[3];
+    const map = { '너는': josa(call, '은', '는'), '너를': josa(call, '을', '를'), '너도': call + '도', '너한테': call + '한테', '너에게': call + '에게', '너의': call + '의', '너랑': josa(call, '이랑', '랑'), '네가': josa(call, '이', '가'), '너': call };
+    say = say.replace(/(^|[\s"“'‘(])(너는|너를|너도|너한테|너에게|너의|너랑|네가|너)(?=[\s,.!?…~"”'’)]|$)/g, (_, p, w) => p + map[w]);
+    if (nm) say = say.replace(new RegExp(`${nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(아|야)(?=[\\s,.!?…~"”]|$)`, 'g'), call);
+    return line.slice(0, line.length - m[3].length) + say;
+  }).join('\n');
+}
+
+/* ───────── AI 호출 (스트리밍 · 30초 시간 초과 · 모델 자동 전환) ───────── */
+const PROV = {
+  claude: { label: 'Claude (Anthropic)', models: ['claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-opus-5-5'], hint: 'sk-ant-…' },
+  gemini: { label: 'Gemini (Google AI Studio)', models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'], hint: 'AIza…' },
+  openai: { label: 'OpenAI · 호환 API', models: ['gpt-5-mini', 'gpt-5'], hint: 'sk-…' },
+};
+function aiCfg() {
+  let c = LS.get(AI_KEY, null);
+  if (!c) { const old = LS.get('sht_ai_cfg', null); if (old && old.key) { c = { provider: old.provider, key: old.key, model: old.model, base: old.base }; LS.set(AI_KEY, c); } }
+  return { provider: 'claude', key: '', model: '', base: '', models: [], fallback: true, ...(c || {}) };
+}
+function modelChain(cfg) {
+  const p = PROV[cfg.provider];
+  const first = cfg.model || p.models[0];
+  const pool = cfg.fallback === false ? [] : [...(cfg.models || []).filter(m => m !== first).slice(0, 6), ...p.models];
+  return [...new Set([first, ...pool])].slice(0, 4);
+}
+class AIError extends Error { constructor(msg, fatal) { super(msg); this.fatal = !!fatal; } }
+async function failFrom(res) {
+  let j = null; try { j = await res.json(); } catch (_) {}
+  const msg = (j && (j.error?.message || j.message)) || res.statusText || ('HTTP ' + res.status);
+  if (res.status === 401 || res.status === 403) return new AIError('API 키가 거부되었습니다 (' + msg + ')', true);
+  if (res.status === 400 && !/model|모델/i.test(msg)) return new AIError('요청 오류: ' + msg, true);
+  return new AIError(`${res.status} ${msg}`);
+}
+async function readSSE(res, onEvent, kick) {
+  const rd = res.body.getReader(), dec = new TextDecoder(); let buf = '';
+  for (;;) {
+    const { done, value } = await rd.read(); if (done) break;
+    kick(); buf += dec.decode(value, { stream: true });
+    let i; while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).replace(/\r$/, ''); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const d = line.slice(5).trim(); if (!d || d === '[DONE]') continue;
+      let j; try { j = JSON.parse(d); } catch (_) { continue; }
+      onEvent(j);
+    }
+  }
+}
+async function streamOnce(cfg, model, system, messages, onText, maxTokens) {
+  const ctl = new AbortController(); abortCtl = ctl;
+  let timer = null, timedOut = false;
+  const kick = () => { clearTimeout(timer); timer = setTimeout(() => { timedOut = true; ctl.abort(); }, 30000); };
+  kick();
+  let text = '';
+  const add = t => { if (t) { text += t; onText && onText(text); } };
+  try {
+    let res;
+    if (cfg.provider === 'claude') {
+      res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, stream: true }) });
+      if (!res.ok) throw await failFrom(res);
+      await readSSE(res, j => {
+        if (j.type === 'content_block_delta') add(j.delta?.text);
+        else if (j.type === 'error') throw new AIError(j.error?.message || '스트림 오류');
+      }, kick);
+    } else if (cfg.provider === 'gemini') {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, { method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': cfg.key },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), generationConfig: { maxOutputTokens: maxTokens } }) });
+      if (!res.ok) throw await failFrom(res);
+      await readSSE(res, j => { for (const p of j.candidates?.[0]?.content?.parts || []) if (!p.thought) add(p.text); }, kick);
+    } else {
+      const base = (cfg.base || 'https://api.openai.com/v1').replace(/\/+$/, '');
+      res = await fetch(base + '/chat/completions', { method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + cfg.key },
+        body: JSON.stringify({ model, stream: true, messages: [{ role: 'system', content: system }, ...messages] }) });
+      if (!res.ok) throw await failFrom(res);
+      await readSSE(res, j => add(j.choices?.[0]?.delta?.content), kick);
+    }
+  } catch (e) {
+    if (e instanceof AIError) throw e;
+    if (timedOut) throw new AIError('30초 동안 응답이 없음');
+    if (e.name === 'AbortError') throw new AIError('중단됨', true);
+    throw new AIError('연결 실패: ' + e.message);
+  } finally { clearTimeout(timer); abortCtl = null; }
+  if (!text.trim()) throw new AIError('빈 응답');
+  return text;
+}
+async function callAI({ system, messages, onText, onSwitch, maxTokens = 1800 }) {
+  const cfg = aiCfg();
+  if (!cfg.key) throw new AIError('AI 설정에서 API 키를 먼저 넣어 주세요.', true);
+  let last;
+  for (const m of modelChain(cfg)) {
+    try { return { text: await streamOnce(cfg, m, system, messages, onText, maxTokens), model: m }; }
+    catch (e) { last = e; if (e.fatal) throw e; onSwitch && onSwitch(m, e.message); }
+  }
+  throw last;
+}
+
+/* ───────── 대화 이력 → API 메시지 ───────── */
+function apiMessages(room, extraUser) {
+  const out = [];
+  const push = (role, content) => { const l = out[out.length - 1]; if (l && l.role === role) l.content += '\n\n' + content; else out.push({ role, content }); };
+  for (const m of room.msgs.slice(room.sumIdx)) {
+    if (m.role === 'user') push('user', fmtUser(m.text));
+    else if (m.role === 'ai') {
+      if (out.length && out[out.length - 1].role === 'assistant') push('user', '(계속)');
+      push('assistant', m.text);
+    }
+  }
+  if (extraUser) push('user', extraUser);
+  if (!out.length || out[0].role !== 'user') out.unshift({ role: 'user', content: '(장면 시작)' });
+  if (out[out.length - 1].role !== 'user') push('user', '(계속)');
+  out[out.length - 1].content += sceneMemo(room);
+  return out;
+}
+
+/* ───────── 대화방 ───────── */
+function settingsFP(room) {
+  const ids = [...new Set([...(room.cast || []), ...(room.mode === 'free' ? LOC(room.loc)?.chars || [] : [])])];
+  return hash(JSON.stringify(ids.map(id => CH[id] && [CH[id].p, CH[id].s, CH[id].t, CH[id].r, CH[id].h, CH[id].c])));
+}
+function newRoom(o) {
+  const room = { id: uid(), created: Date.now(), updated: Date.now(), mode: o.mode, title: o.title, loc: o.loc, role: o.role || profile.role,
+    cast: o.cast || [], premise: o.premise || '', outfit: o.outfit || '', situation: o.situation || '',
+    msgs: [], summary: '', sumIdx: 0, aff: {}, met: [], scene: { place: LOC(o.loc)?.name || '', time: o.time || '낮', present: o.present || [] }, fpNotice: 0 };
+  room.fp = settingsFP(room);
+  for (const id of room.cast) meet(room, id);
+  if (o.opening) room.msgs.push({ id: uid(), role: 'ai', text: o.opening, t: Date.now(), opening: true });
+  rooms.unshift(room); saveRooms();
+  openRoom(room.id);
+}
+function meet(room, id) {
+  if (!CH[id]) return;
+  if (!room.met.includes(id)) room.met.push(id);
+  if (room.aff[id] == null) room.aff[id] = CH[id].aff0;
+}
+function applyTags(room, tags) {
+  for (const [who, n] of tags.aff) {
+    const id = resolveId(who); if (!id) continue;
+    meet(room, id);
+    room.aff[id] = Math.max(0, Math.min(100, room.aff[id] + Math.max(-3, Math.min(3, n))));
+  }
+  if (tags.scene) {
+    const [place, time, pres] = tags.scene.split('|').map(s => (s || '').trim());
+    if (place) room.scene.place = place;
+    if (time && D.world.times.includes(time)) room.scene.time = time;
+    if (pres != null) {
+      const ids = pres.replace(/^등장\s*/, '').split(/[,\s·]+/).map(resolveId).filter(Boolean);
+      room.scene.present = [...new Set(ids)];
+      ids.forEach(id => meet(room, id));
+    }
+  }
+}
+
+/* ───────── 화면: 홈 ───────── */
+function avatar(id, size) {
+  const c = CH[id]; if (!c) return '';
+  const st = size ? `width:${size}px;height:${size}px;font-size:${Math.round(size * .38)}px` : '';
+  return `<span class="av" style="background:${c.color};${st}" title="${esc(c.name)}">${esc(c.name.slice(0, id === 'heathcliff' || id === 'vergilius' ? 2 : 1))}</span>`;
+}
+function ring(id, room) {
+  const c = CH[id], a = room.aff[id] ?? c.aff0, r = 21, L = 2 * Math.PI * r;
+  return `<button class="ringav" data-prof="${id}" title="${esc(c.name)} · 호감도 ${a}">
+    <svg viewBox="0 0 46 46" width="46" height="46"><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--ring-bg)" stroke-width="3"/>
+    <circle cx="23" cy="23" r="${r}" fill="none" stroke="${c.color}" stroke-width="3" stroke-linecap="round" stroke-dasharray="${L * a / 100} ${L}"/></svg>
+    ${avatar(id)}<span class="num">${a}</span></button>`;
+}
+const MODE_LABEL = { free: '자유', duo: '1:1', story: '스토리' };
+function renderHome() {
+  themeLabel();
+  $('#profileLine').innerHTML = pname() ? `주인공: <b>${esc(pname())}</b> · ${esc(profile.role)} <button class="btn small" id="profBtn">바꾸기</button>` : `<button class="btn small primary" id="profBtn">주인공 이름 정하기</button>`;
+  $('#profBtn').onclick = profileModal;
+  const box = $('#rooms');
+  if (!rooms.length) { box.innerHTML = '<p class="muted">아직 대화방이 없습니다. 위에서 모드를 골라 시작하세요.</p>'; return; }
+  box.innerHTML = rooms.map(r => {
+    const last = [...r.msgs].reverse().find(m => m.role !== 'sys');
+    const prev = last ? (last.role === 'user' ? '나: ' + last.text : parseAI(last.text).map(b => b.id ? `${CH[b.id].name}: ${b.say}` : b.text).pop() || '') : '';
+    return `<button class="room" data-open="${r.id}"><span class="stack">${(r.met.length ? r.met : r.cast).slice(0, 4).map(id => avatar(id, 30)).join('')}</span>
+      <span class="meta"><b>${esc(r.title)} <small style="display:inline;color:var(--muted)">· ${MODE_LABEL[r.mode]}</small></b><small>${esc(prev.slice(0, 80))}</small></span>
+      <small class="muted">${new Date(r.updated).toLocaleDateString()}</small></button>`;
+  }).join('');
+}
+$('#rooms').onclick = e => { const b = e.target.closest('[data-open]'); if (b) openRoom(b.dataset.open); };
+document.querySelectorAll('[data-new]').forEach(b => b.onclick = () => { if (!pname()) return profileModal(() => newRoomModal(b.dataset.new)); newRoomModal(b.dataset.new); });
+
+/* ───────── 모달 ───────── */
+function modal(html, onMount) { $('#mbox').innerHTML = html; $('#modal').classList.remove('hidden'); onMount && onMount($('#mbox')); }
+function closeModal() { $('#modal').classList.add('hidden'); $('#mbox').innerHTML = ''; }
+$('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
+
+function profileModal(then) {
+  modal(`<h3>주인공</h3>
+    <label>이름</label><input id="pName" maxlength="12" value="${esc(profile.name)}" placeholder="예: 하진">
+    <label>기본 신분 (스토리 시나리오는 자기 신분을 씁니다)</label>
+    <select id="pRole">${D.world.protagonist.roles.map(r => `<option ${r === profile.role ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select>
+    <label>소개 (선택 — 외모·성격·사정 등, AI가 참고)</label><textarea id="pAbout" rows="3" maxlength="400">${esc(profile.about)}</textarea>
+    <div class="actions"><button class="btn" data-x>닫기</button><button class="btn primary" id="pOk">저장</button></div>`, b => {
+    b.querySelector('[data-x]').onclick = closeModal;
+    b.querySelector('#pOk').onclick = () => {
+      const n = b.querySelector('#pName').value.trim(); if (!n) return b.querySelector('#pName').focus();
+      profile = { name: n, role: b.querySelector('#pRole').value, about: b.querySelector('#pAbout').value.trim() };
+      LS.set(PROF_KEY, profile); closeModal(); renderHome(); if (typeof then === 'function') then();
+    };
+  });
+}
+
+function charPicker(sel, max) {
+  return `<div class="grid" data-picker data-max="${max}">${D.characters.map(c => `<button class="pick ${sel.includes(c.id) ? 'on' : ''}" data-id="${c.id}">${avatar(c.id, 30)}<span><b>${esc(c.name)}</b><small>${esc(FAC(c.faction)?.name || '')}</small></span></button>`).join('')}</div>`;
+}
+function bindPicker(root, sel, max, onChange) {
+  root.querySelector('[data-picker]').onclick = e => {
+    const b = e.target.closest('.pick'); if (!b) return;
+    const id = b.dataset.id, i = sel.indexOf(id);
+    if (i >= 0) sel.splice(i, 1); else { if (max === 1) sel.length = 0; if (sel.length >= max) return; sel.push(id); }
+    root.querySelectorAll('.pick').forEach(p => p.classList.toggle('on', sel.includes(p.dataset.id)));
+    onChange && onChange();
+  };
+}
+function newRoomModal(mode) {
+  const locOpts = sel => D.world.locations.map(l => `<option value="${l.id}" ${l.id === sel ? 'selected' : ''}>${esc(l.name)}</option>`).join('');
+  const timeOpts = D.world.times.map(t => `<option ${t === '낮' ? 'selected' : ''}>${t}</option>`).join('');
+  if (mode === 'free') {
+    modal(`<h3>🗺 자유 모드 — 장소 고르기</h3><div class="list">${D.world.locations.map(l => `<button class="card" data-loc="${l.id}"><b>${esc(l.name)}</b><small>${esc(l.intro)}</small><small>있을 법한 인물: ${l.chars.slice(0, 8).map(id => CH[id].name).join(', ')}${l.chars.length > 8 ? ' 외' : ''}</small></button>`).join('')}</div>
+      <label>시간</label><select id="nTime">${timeOpts}</select>
+      <div class="actions"><button class="btn" data-x>닫기</button></div>`, b => {
+      b.querySelector('[data-x]').onclick = closeModal;
+      b.querySelectorAll('[data-loc]').forEach(x => x.onclick = () => {
+        const l = LOC(x.dataset.loc), time = b.querySelector('#nTime').value;
+        closeModal();
+        newRoom({ mode: 'free', title: l.name, loc: l.id, time, opening: l.intro });
+      });
+    });
+  } else if (mode === 'duo') {
+    const sel = [];
+    modal(`<h3>💬 1:1 대화</h3>${charPicker(sel, 1)}
+      <label>장소</label><select id="nLoc">${locOpts('')}</select>
+      <label>시간</label><select id="nTime">${timeOpts}</select>
+      <label>상대의 차림</label><select id="nOutfit"><option value="">(원작 그대로)</option>${D.world.outfits.map(o => `<option>${esc(o)}</option>`).join('')}</select>
+      <label>상황 (선택)</label><textarea id="nSit" rows="2" maxlength="300" placeholder="예: 비 오는 날 버스 뒷좌석에 단둘이 남았다"></textarea>
+      <div class="actions"><button class="btn" data-x>닫기</button><button class="btn primary" id="nOk">시작</button></div>`, b => {
+      b.querySelector('[data-x]').onclick = closeModal;
+      bindPicker(b, sel, 1, () => {
+        const c = CH[sel[0]]; if (!c) return;
+        const l = D.world.locations.find(l => l.chars.includes(c.id)); if (l) b.querySelector('#nLoc').value = l.id;
+      });
+      b.querySelector('#nOk').onclick = () => {
+        if (!sel.length) return;
+        const c = CH[sel[0]], l = LOC(b.querySelector('#nLoc').value), outfit = b.querySelector('#nOutfit').value, sit = b.querySelector('#nSit').value.trim(), time = b.querySelector('#nTime').value;
+        closeModal();
+        const open = `${l.intro}\n${josa(c.name, '이', '가')} ${outfit ? outfit + ' 차림으로 ' : ''}그곳에 있다.${sit ? '\n' + sit : ''}`;
+        newRoom({ mode: 'duo', title: c.name, loc: l.id, time, cast: [c.id], present: [c.id], outfit, situation: sit, opening: open });
+      };
+    });
+  } else {
+    let pick = null; const sel = [];
+    modal(`<h3>📖 스토리 모드</h3><div class="list">${D.scenarios.map(s => `<button class="card" data-sc="${s.id}"><b>${esc(s.title)}</b><small>${esc(s.premise)}</small><small>등장: ${s.cast.map(id => CH[id].name).join(', ')} · ${esc(LOC(s.loc).name)}</small></button>`).join('')}
+      <button class="card" data-sc="custom"><b>✍ 자유 시나리오</b><small>인물(최대 6명)과 상황을 직접 정합니다.</small></button></div>
+      <div id="custom" class="hidden"><label>등장 인물 (최대 6명)</label>${charPicker(sel, 6)}
+        <label>장소</label><select id="nLoc">${locOpts('bus')}</select><label>시간</label><select id="nTime">${timeOpts}</select>
+        <label>시나리오 제목</label><input id="nTitle" maxlength="30" placeholder="예: 버스가 고장 난 날">
+        <label>설정·도입</label><textarea id="nPrem" rows="3" maxlength="600"></textarea></div>
+      <div class="actions"><button class="btn" data-x>닫기</button><button class="btn primary" id="nOk">시작</button></div>`, b => {
+      b.querySelector('[data-x]').onclick = closeModal;
+      bindPicker(b, sel, 6);
+      b.querySelectorAll('[data-sc]').forEach(x => x.onclick = () => {
+        pick = x.dataset.sc; b.querySelectorAll('[data-sc]').forEach(y => y.classList.toggle('on', y === x));
+        b.querySelector('#custom').classList.toggle('hidden', pick !== 'custom');
+      });
+      b.querySelector('#nOk').onclick = () => {
+        if (!pick) return;
+        if (pick === 'custom') {
+          if (!sel.length) return;
+          const l = LOC(b.querySelector('#nLoc').value), prem = b.querySelector('#nPrem').value.trim();
+          closeModal();
+          newRoom({ mode: 'story', title: b.querySelector('#nTitle').value.trim() || '자유 시나리오', loc: l.id, time: b.querySelector('#nTime').value, cast: [...sel], present: [...sel], premise: prem || '자유 시나리오', opening: l.intro + (prem ? '\n' + prem : '') });
+        } else {
+          const s = D.scenarios.find(s => s.id === pick);
+          closeModal();
+          newRoom({ mode: 'story', title: s.title, loc: s.loc, time: s.time, role: s.role, cast: s.cast, present: s.cast, premise: s.premise, opening: fillName(s.opening.join('\n')) });
+        }
+      };
+    });
+  }
+}
+
+/* ───────── 화면: 채팅 ───────── */
+function openRoom(id) {
+  cur = rooms.find(r => r.id === id); if (!cur) return;
+  const fp = settingsFP(cur);
+  if (cur.fp !== fp) { cur.fp = fp; cur.fpNotice = 20; saveRooms(); }
+  $('#home').classList.add('hidden'); $('#chat').classList.remove('hidden');
+  renderChat(true);
+  if (!aiCfg().key) sysNote('AI를 쓰려면 ⚙ AI 설정에서 본인 API 키를 넣어 주세요 (홈 화면 오른쪽 위).');
+}
+function goHome() { if (busy && abortCtl) abortCtl.abort(); cur = null; $('#chat').classList.add('hidden'); $('#home').classList.remove('hidden'); renderHome(); }
+$('#backBtn').onclick = goHome;
+
+function renderHeader() {
+  $('#roomTitle').textContent = cur.title;
+  const sc = cur.scene;
+  $('#sceneLine').textContent = [sc.place, sc.time, (sc.present || []).map(id => CH[id]?.name).filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  const order = [...new Set([...(sc.present || []), ...cur.met])];
+  $('#cast').innerHTML = order.map(id => ring(id, cur)).join('');
+  $('#cast').classList.toggle('hidden', !order.length);
+}
+function richText(s) { return esc(s).replace(/\*([^*\n]+)\*/g, '<em>$1</em>'); }
+function aiHTML(text) {
+  return parseAI(text).map(b => b.id
+    ? `<div class="line"><div class="who">${b.emo ? `<span class="emo">${esc(b.emo)}</span>` : ''}${avatar(b.id)}</div><div class="body"><div class="nm">${esc(CH[b.id].name)}</div><div class="bub">${richText(b.say)}</div></div></div>`
+    : `<div class="narr">${richText(b.text)}</div>`).join('');
+}
+function userHTML(text) {
+  return `<div class="mine"><div class="ubub">${esc(text).replace(/\*([^*\n]+)\*/g, '<span class="act">$1</span>')}</div></div>`;
+}
+let selMsg = null;
+function msgEl(m, i) {
+  const last = i === cur.msgs.length - 1;
+  const lastAi = m.role === 'ai' && last;
+  const tools = selMsg === m.id ? `<div class="tools">
+      <button class="btn small" data-act="edit">✏ 편집</button>
+      <button class="btn small" data-act="del">🗑 삭제</button>
+      ${lastAi && !m.opening ? '<button class="btn small" data-act="regen">↻ 다시 생성</button>' : ''}
+      ${!last ? '<button class="btn small" data-act="rewind">⤺ 여기까지 되돌리기</button>' : ''}
+      <button class="btn small" data-act="copy">📋 복사</button></div>` : '';
+  if (m.role === 'sys') return `<div class="msg sysmsg ${m.err ? 'err' : ''}" data-mid="${m.id}">${esc(m.text)}${m.retry ? ' <button class="btn small" data-act="retry">다시 시도</button>' : ''}</div>`;
+  const cls = m.role === 'user' ? 'usermsg' : 'aimsg';
+  return `<div class="msg ${cls} ${selMsg === m.id ? 'sel' : ''}" data-mid="${m.id}">${m.role === 'user' ? userHTML(m.text) : aiHTML(m.text)}${tools}</div>`;
+}
+function renderChat(toBottom) {
+  renderHeader();
+  const box = $('#logInner');
+  const notice = cur.fpNotice > 0 ? `<div class="notice">인물 설정이 갱신되었습니다. 이 대화방의 예전 답장과 말투가 다를 수 있으며, 앞으로 ${cur.fpNotice}턴 동안 AI에게 예전 말투를 무시하도록 안내합니다.</div>` : '';
+  const sum = cur.sumIdx > 0 ? `<div class="sysmsg">앞선 대화 ${cur.sumIdx}개는 요약되어 기억됩니다.</div>` : '';
+  box.innerHTML = notice + sum + cur.msgs.map(msgEl).join('');
+  if (toBottom) requestAnimationFrame(() => { const l = $('#log'); l.scrollTop = l.scrollHeight; });
+}
+function nearBottom() { const l = $('#log'); return l.scrollHeight - l.scrollTop - l.clientHeight < 120; }
+function sysNote(text, err, retry) {
+  if (!cur) return alert(text);
+  cur.msgs = cur.msgs.filter(m => !(m.role === 'sys' && m.retry));
+  cur.msgs.push({ id: uid(), role: 'sys', text, err: !!err, retry: !!retry, t: Date.now() });
+  renderChat(nearBottom());
+}
+
+$('#logInner').onclick = e => {
+  const act = e.target.closest('[data-act]');
+  const el = e.target.closest('[data-mid]'); if (!el) return;
+  const i = cur.msgs.findIndex(m => m.id === el.dataset.mid), m = cur.msgs[i];
+  if (!act) { if (m.role === 'sys' || busy) return; selMsg = selMsg === m.id ? null : m.id; const st = $('#log').scrollTop; renderChat(); $('#log').scrollTop = st; return; }
+  const a = act.dataset.act;
+  if (a === 'retry') { cur.msgs.splice(i, 1); return generate(); }
+  if (busy) return;
+  if (a === 'copy') { navigator.clipboard?.writeText(m.text); selMsg = null; renderChat(); return; }
+  if (a === 'edit') return editModal(m);
+  if (a === 'del') { removeFrom(i, 1); selMsg = null; renderChat(); return; }
+  if (a === 'rewind') { removeFrom(i + 1, cur.msgs.length - i - 1); selMsg = null; renderChat(true); return; }
+  if (a === 'regen') { removeFrom(i, 1); selMsg = null; renderChat(true); return generate(); }
+};
+// 메시지를 지우면 그 답장이 바꾼 호감도·장면도 되돌린다
+function removeFrom(i, n) {
+  const gone = cur.msgs.splice(i, n);
+  const firstAi = gone.find(m => m.role === 'ai' && m.before);
+  if (firstAi) { cur.aff = { ...firstAi.before.aff }; cur.scene = JSON.parse(JSON.stringify(firstAi.before.scene)); cur.met = [...firstAi.before.met]; }
+  const removedBeforeSum = Math.max(0, Math.min(cur.sumIdx, i + n) - i);
+  cur.sumIdx -= removedBeforeSum;
+  cur.updated = Date.now(); saveRooms();
+}
+function editModal(m) {
+  modal(`<h3>메시지 편집</h3><textarea id="eTxt" rows="10">${esc(m.text)}</textarea>
+    <p class="muted" style="font-size:12.5px">AI 답장은 「이름(감정): "대사"」 줄과 서술 문단으로 이루어져 있습니다.</p>
+    <div class="actions"><button class="btn" data-x>취소</button><button class="btn primary" id="eOk">저장</button></div>`, b => {
+    b.querySelector('[data-x]').onclick = closeModal;
+    b.querySelector('#eOk').onclick = () => { const t = b.querySelector('#eTxt').value.trim(); if (t) { m.text = t; m.edited = true; } closeModal(); selMsg = null; cur.updated = Date.now(); saveRooms(); renderChat(); };
+  });
+}
+
+/* ───────── 보내기 · 생성 ───────── */
+const inp = $('#inp');
+function autosize() { inp.style.height = 'auto'; inp.style.height = Math.min(180, inp.scrollHeight) + 'px'; }
+inp.addEventListener('input', autosize);
+inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && matchMedia('(pointer:fine)').matches) { e.preventDefault(); send(); } });
+function wrapSel(a, b) {
+  const s = inp.selectionStart, e = inp.selectionEnd, v = inp.value, mid = v.slice(s, e);
+  inp.value = v.slice(0, s) + a + mid + b + v.slice(e);
+  inp.focus(); const pos = mid ? s + a.length + mid.length + b.length : s + a.length; inp.setSelectionRange(pos, pos); autosize();
+}
+$('#qSay').onclick = () => wrapSel('"', '"');
+$('#qAct').onclick = () => wrapSel('*', '*');
+$('#sendBtn').onclick = () => busy ? abortCtl && abortCtl.abort() : send();
+$('#contBtn').onclick = () => { if (!busy) generate('[이어서] (주인공은 잠시 말없이 지켜본다. 주인공의 말·행동은 만들지 말고 장면을 자연스럽게 이어서 써 주세요.)'); };
+
+function send() {
+  const t = inp.value.trim(); if (!t || busy || !cur) return;
+  cur.msgs = cur.msgs.filter(m => !(m.role === 'sys' && m.retry));
+  cur.msgs.push({ id: uid(), role: 'user', text: t, t: Date.now() });
+  inp.value = ''; autosize(); selMsg = null;
+  cur.updated = Date.now(); saveRooms(); renderChat(true);
+  generate();
+}
+function setBusy(b) { busy = b; $('#sendBtn').textContent = b ? '■ 중단' : '보내기'; $('#contBtn').disabled = b; }
+async function generate(extra) {
+  if (busy || !cur) return;
+  const room = cur;
+  setBusy(true);
+  const box = $('#logInner');
+  const live = document.createElement('div'); live.className = 'msg aimsg';
+  live.innerHTML = '<div class="typing">답장을 쓰는 중</div>';
+  box.appendChild(live);
+  live.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  let follow = false;
+  try {
+    const system = sysPrompt(room), messages = apiMessages(room, extra);
+    const { text, model } = await callAI({ system, messages,
+      onText: t => {
+        if (cur !== room) return;
+        const shown = t.replace(TAG_RE, '').replace(/\[[^\]]*$/, '');
+        const stick = follow && nearBottom();
+        live.innerHTML = aiHTML(postprocess(shown)) + '<div class="typing"></div>';
+        if (live.getBoundingClientRect().bottom > $('#log').getBoundingClientRect().bottom) follow = true;
+        if (stick) $('#log').scrollTop = $('#log').scrollHeight;
+      },
+      onSwitch: (m, why) => { if (cur === room) live.innerHTML = `<div class="typing">${esc(m)}: ${esc(why)} → 다른 모델로 전환하는 중</div>`; } });
+    const tags = extractTags(text);
+    const before = { aff: { ...room.aff }, scene: JSON.parse(JSON.stringify(room.scene)), met: [...room.met] };
+    applyTags(room, tags);
+    // 대사에 나온 인물도 만난 사람으로
+    const body = postprocess(tags.body);
+    for (const b of parseAI(body)) if (b.id) meet(room, b.id);
+    room.msgs.push({ id: uid(), role: 'ai', text: body, t: Date.now(), model, before, cont: !!extra });
+    if (room.fpNotice > 0) room.fpNotice--;
+    room.updated = Date.now(); saveRooms();
+  } catch (e) {
+    room.msgs.push({ id: uid(), role: 'sys', text: e.message === '중단됨' ? '답장을 중단했습니다.' : '응답을 받지 못했습니다: ' + e.message, err: e.message !== '중단됨', retry: true, t: Date.now() });
+    saveRooms();
+  }
+  setBusy(false);
+  if (cur === room) {
+    const st = $('#log').scrollTop; renderChat();
+    $('#log').scrollTop = st;
+    const el = $('#logInner').lastElementChild; if (el && !follow) el.scrollIntoView({ block: 'start' });
+  }
+  maybeSummarize(room);
+}
+
+/* ───────── 자동 요약: 안 요약된 메시지가 30개를 넘으면 최근 12개만 원문 유지 ───────── */
+async function maybeSummarize(room) {
+  const real = room.msgs.length - room.sumIdx;
+  if (real <= 30 || room.summarizing) return;
+  const end = room.msgs.length - 12;
+  const chunk = room.msgs.slice(room.sumIdx, end).filter(m => m.role !== 'sys');
+  const log = chunk.map(m => m.role === 'user' ? `${pname() || '주인공'}: ${m.text}` : parseAI(m.text).map(b => b.id ? `${CH[b.id].name}: ${b.say}` : b.text).join('\n')).join('\n');
+  room.summarizing = true;
+  try {
+    const { text } = await callAI({ maxTokens: 900,
+      system: '당신은 롤플레이 대화 기록을 요약하는 도우미입니다. 다음 대화에 꼭 필요한 사실(일어난 사건, 장소 이동, 주인공이 한 약속·선택, 인물들과의 관계 변화, 받은 물건, 남은 떡밥)을 한국어로 간결하게 정리하세요. 대사를 옮겨 적지 말고 사건 위주로, 15줄 이내.',
+      messages: [{ role: 'user', content: (room.summary ? `[이전 요약]\n${room.summary}\n\n` : '') + `[새로 요약할 대화]\n${log}\n\n위 내용을 이전 요약과 합쳐 하나의 요약으로 다시 써 주세요.` }] });
+    if (rooms.includes(room) && room.msgs.length >= end) { room.summary = text.trim(); room.sumIdx = end; saveRooms(); if (cur === room) renderChat(); }
+  } catch (_) { /* 다음 턴에 다시 시도 */ }
+  room.summarizing = false;
+}
+
+/* ───────── 대화방 메뉴 · 프로필 ───────── */
+$('#roomMenuBtn').onclick = () => {
+  modal(`<h3>${esc(cur.title)}</h3>
+    <div class="list">
+      <button class="card" data-m="rename"><b>이름 바꾸기</b></button>
+      <button class="card" data-m="summary"><b>기억(요약) 보기·고치기</b><small>${cur.summary ? esc(cur.summary.slice(0, 60)) + '…' : '아직 요약 없음'}</small></button>
+      <button class="card" data-m="profile"><b>주인공 설정</b><small>${esc(pname())} · 이 방의 신분: ${esc(cur.role)}</small></button>
+      <button class="card" data-m="delete"><b style="color:var(--accent)">대화방 삭제</b></button>
+    </div><div class="actions"><button class="btn" data-x>닫기</button></div>`, b => {
+    b.querySelector('[data-x]').onclick = closeModal;
+    b.querySelectorAll('[data-m]').forEach(x => x.onclick = () => {
+      const k = x.dataset.m;
+      if (k === 'rename') { const t = prompt('대화방 이름', cur.title); if (t && t.trim()) { cur.title = t.trim(); saveRooms(); renderHeader(); } closeModal(); }
+      if (k === 'summary') modal(`<h3>기억(요약)</h3><textarea id="sTxt" rows="12">${esc(cur.summary)}</textarea><div class="actions"><button class="btn" data-x>취소</button><button class="btn primary" id="sOk">저장</button></div>`, c => {
+        c.querySelector('[data-x]').onclick = closeModal;
+        c.querySelector('#sOk').onclick = () => { cur.summary = c.querySelector('#sTxt').value.trim(); saveRooms(); closeModal(); };
+      });
+      if (k === 'profile') { closeModal(); profileModal(); }
+      if (k === 'delete') { if (confirm('이 대화방을 지울까요? 되돌릴 수 없습니다.')) { rooms = rooms.filter(r => r !== cur); saveRooms(); closeModal(); goHome(); } }
+    });
+  });
+};
+$('#cast').onclick = e => {
+  const b = e.target.closest('[data-prof]'); if (!b) return;
+  const c = CH[b.dataset.prof], a = cur.aff[c.id] ?? c.aff0;
+  modal(`<h3 style="display:flex;align-items:center;gap:10px">${avatar(c.id, 40)} ${esc(c.name)}</h3>
+    <div class="muted">${esc(FAC(c.faction)?.name || '')} · 호감도 ${a}/100 (${affStage(a)})</div>
+    <dl class="prof"><dt>성격</dt><dd>${esc(c.p)}</dd><dt>말투 · ${esc(c.h)}</dt><dd>${esc(c.s)}</dd><dt>나를 부르는 말</dt><dd>${esc(callOf(c))}</dd><dt>관계</dt><dd>${esc(c.r)}</dd></dl>
+    ${c.inferred.length ? `<div class="flag">추정으로 채운 부분: ${c.inferred.map(esc).join(' / ')}</div>` : ''}
+    <div class="actions"><button class="btn" data-x>닫기</button></div>`, m => m.querySelector('[data-x]').onclick = closeModal);
+};
+
+/* ───────── AI 설정 ───────── */
+$('#setBtn').onclick = () => {
+  const c = aiCfg();
+  modal(`<h3>⚙ AI 설정</h3>
+    <label>서비스</label><select id="aProv">${Object.entries(PROV).map(([k, p]) => `<option value="${k}" ${k === c.provider ? 'selected' : ''}>${p.label}</option>`).join('')}</select>
+    <label>API 키 (이 브라우저에만 저장)</label><input id="aKey" type="password" autocomplete="off" value="${esc(c.key)}">
+    <label id="aBaseL">API 주소 (OpenAI 호환, 선택)</label><input id="aBase" value="${esc(c.base)}" placeholder="https://api.openai.com/v1">
+    <label>모델</label><div style="display:flex;gap:6px"><select id="aModel"></select><button class="btn small" id="aLoad">목록 불러오기</button></div>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="aFb" style="width:auto" ${c.fallback !== false ? 'checked' : ''}> 한도·시간 초과(30초) 시 다른 모델로 자동 전환</label>
+    <p class="muted" id="aMsg" style="font-size:12.5px"></p>
+    <div class="actions"><button class="btn" id="aDel">키 지우기</button><button class="btn" data-x>닫기</button><button class="btn primary" id="aOk">저장</button></div>`, b => {
+    let models = c.models || [];
+    const fill = () => {
+      const pv = b.querySelector('#aProv').value, list = [...new Set([...(pv === c.provider ? models : []), ...PROV[pv].models])];
+      b.querySelector('#aModel').innerHTML = list.map(m => `<option ${m === c.model ? 'selected' : ''}>${esc(m)}</option>`).join('');
+      b.querySelector('#aKey').placeholder = PROV[pv].hint;
+      b.querySelector('#aBase').classList.toggle('hidden', pv !== 'openai'); b.querySelector('#aBaseL').classList.toggle('hidden', pv !== 'openai');
+    };
+    fill();
+    b.querySelector('#aProv').onchange = () => { models = []; fill(); };
+    b.querySelector('[data-x]').onclick = closeModal;
+    b.querySelector('#aDel').onclick = () => { LS.set(AI_KEY, { ...aiCfg(), key: '' }); b.querySelector('#aKey').value = ''; b.querySelector('#aMsg').textContent = '키를 지웠습니다.'; };
+    b.querySelector('#aLoad').onclick = async () => {
+      const pv = b.querySelector('#aProv').value, key = b.querySelector('#aKey').value.trim(), msg = b.querySelector('#aMsg');
+      if (!key) return msg.textContent = '키를 먼저 넣어 주세요.';
+      msg.textContent = '불러오는 중…';
+      try {
+        let r, j;
+        if (pv === 'claude') { r = await fetch('https://api.anthropic.com/v1/models?limit=100', { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' } }); j = await r.json(); models = (j.data || []).map(m => m.id); }
+        else if (pv === 'gemini') { r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key } }); j = await r.json(); models = (j.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/.test(m.name) && !/embedding|image|tts|audio|live/i.test(m.name)).map(m => m.name.replace(/^models\//, '')); }
+        else { r = await fetch((b.querySelector('#aBase').value.trim() || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/models', { headers: { authorization: 'Bearer ' + key } }); j = await r.json(); models = (j.data || []).map(m => m.id); }
+        if (!r.ok) throw new Error(j.error?.message || r.status);
+        c.provider = pv; fill(); msg.textContent = `모델 ${models.length}개를 불러왔습니다.`;
+      } catch (e) { msg.textContent = '불러오지 못했습니다: ' + e.message; }
+    };
+    b.querySelector('#aOk').onclick = () => {
+      const pv = b.querySelector('#aProv').value;
+      LS.set(AI_KEY, { provider: pv, key: b.querySelector('#aKey').value.trim(), base: b.querySelector('#aBase').value.trim(), model: b.querySelector('#aModel').value, models, fallback: b.querySelector('#aFb').checked });
+      closeModal(); if (cur) renderChat();
+    };
+  });
+};
+
+/* ───────── 내보내기 · 가져오기 (API 키는 포함하지 않음) ───────── */
+$('#exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify({ app: 'pmc-chat', v: 1, profile, rooms }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `city-chat-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('#importBtn').onclick = () => {
+  const f = document.createElement('input'); f.type = 'file'; f.accept = 'application/json,.json';
+  f.onchange = async () => {
+    try {
+      const j = JSON.parse(await f.files[0].text());
+      if (j.app !== 'pmc-chat' || !Array.isArray(j.rooms)) throw new Error('도시 채팅 파일이 아닙니다');
+      const have = new Set(rooms.map(r => r.id));
+      const add = j.rooms.filter(r => r && r.id && Array.isArray(r.msgs) && !have.has(r.id));
+      rooms = [...add, ...rooms]; saveRooms();
+      if (!pname() && j.profile?.name) { profile = j.profile; LS.set(PROF_KEY, profile); }
+      renderHome(); alert(`대화방 ${add.length}개를 가져왔습니다.`);
+    } catch (e) { alert('가져오지 못했습니다: ' + e.message); }
+  };
+  f.click();
+};
+
+/* ───────── 시작 ───────── */
+async function boot() {
+  if (!D) {   // 개발용: 빌드 전 template.html을 직접 열었을 때
+    const get = n => fetch('../data/' + n).then(r => r.json());
+    const [world, factions, scenarios, characters] = await Promise.all(['world.json', 'factions.json', 'scenarios.json', 'characters.json'].map(get));
+    D = { world, factions, scenarios, characters };
+  }
+  indexData();
+  renderHome();
+}
+boot();
+</script>
+</body>
+</html>
