@@ -9987,6 +9987,8 @@ body.ai-on .ai-line .ai-me{box-shadow:0 1px 3px rgba(0,0,0,.12)}
 #titleTheme{position:absolute;top:12px;right:16px;z-index:5}
 @media (max-width:600px){ #titleTheme{position:static;display:block;margin:10px 0 -10px auto} }
 #title{position:relative}
+#toChat{position:absolute;top:12px;left:16px;z-index:5;font-size:13px;padding:5px 11px;text-decoration:none;color:var(--text);border:1px solid var(--line,#444);border-radius:8px}
+@media (max-width:600px){ #toChat{position:static;display:inline-block;margin:10px 0 -10px} }
 </style>
 <script>
 /* ---------- 테마 고르기 — 다크 → 라이트 → 시스템 순서로 바뀐다 ---------- */
@@ -9996,6 +9998,7 @@ body.ai-on .ai-line .ai-me{box-shadow:0 1px 3px rgba(0,0,0,.12)}
   const apply = t => { document.documentElement.dataset.theme = t; try { localStorage.setItem('sht_theme', t); } catch (_) {} document.querySelectorAll('.theme-btn').forEach(b => { b.textContent = LABEL[t]; b.title = '화면 테마 바꾸기'; }); };
   const next = () => apply(ORDER[(ORDER.indexOf(cur()) + 1) % ORDER.length]);
   document.getElementById('title').insertAdjacentHTML('afterbegin', '<button id="titleTheme" class="theme-btn"></button>');
+  document.getElementById('title').insertAdjacentHTML('afterbegin', '<a id="toChat" href="../">← 도시 채팅</a>');
   const mb = document.querySelector('.menu-btns'); if (mb) mb.insertAdjacentHTML('beforeend', ' <button id="themeBtn" class="theme-btn" style="padding:3px 9px;font-size:13px"></button>');
   document.querySelectorAll('.theme-btn').forEach(b => b.onclick = e => { e.stopPropagation(); next(); });
   apply(cur());

@@ -42,6 +42,7 @@ a{color:var(--accent)}
 .tagline{color:var(--muted);margin:0 0 20px}
 .toprow{display:flex;gap:8px;flex-wrap:wrap}
 .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 26px}
+.mode.turn{grid-column:1/-1;text-decoration:none;color:inherit;border-style:dashed}
 .mode{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;box-shadow:var(--shadow)}
 .mode:hover{border-color:var(--accent)}
 .mode b{display:block;font-size:16px;margin-bottom:4px}
@@ -151,13 +152,13 @@ h2{font-size:15px;margin:0 0 10px;color:var(--muted);font-weight:600}
     <button class="mode" data-new="free"><b>🗺 자유 모드</b><small>장소를 고르면 그곳에 있을 법한 인물이 나타납니다. 만난 사람 모두의 호감도가 쌓입니다.</small></button>
     <button class="mode" data-new="duo"><b>💬 1:1 대화</b><small>한 사람과 대화합니다. 장소·차림·상황을 정할 수 있습니다.</small></button>
     <button class="mode" data-new="story"><b>📖 스토리 모드</b><small>준비된 시나리오나 직접 쓴 시나리오로, 최대 6명이 함께 등장합니다.</small></button>
+    <a class="mode turn" href="legacy/"><b>⚔ 턴제 모드 — 뒷골목의 나날</b><small>채팅과 별개인 생존 게임. 하루씩 일을 고르고, 카드 전투로 싸우며 뒷골목에서 살아남습니다. 저장도 따로입니다.</small></a>
   </div>
   <h2>대화방</h2>
   <div class="rooms" id="rooms"></div>
   <div class="toprow" style="margin-top:14px">
     <button class="btn small" id="exportBtn">대화 내보내기</button>
     <button class="btn small" id="importBtn">대화 가져오기</button>
-    <a class="btn small" href="legacy/" style="text-decoration:none">구 버전 (카드 서바이벌)</a>
   </div>
   <p class="foot">API 키는 이 브라우저(localStorage)에만 저장되고, 고른 AI 서비스 외에는 어디에도 보내지 않습니다. 대화 내보내기 파일에도 키는 들어가지 않습니다.<br>
   로보토미 코퍼레이션·라이브러리 오브 루이나·림버스 컴퍼니와 모든 캐릭터의 저작권은 Project Moon에 있습니다. 이 사이트는 비공식 팬 창작이며, 원작 대사를 싣지 않습니다.</p>
