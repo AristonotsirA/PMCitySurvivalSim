@@ -10617,5 +10617,172 @@ const _aiExactState=aiStateText;
 aiStateText=function(){return _aiExactState()+'\n[시간·금액 적용] 대화만으로 시간은 흐르지 않는다. 플레이어가 지정한 기간·시각을 최우선 반영한다. 행동에 명백한 소요 시간이 있으면 그 시간만 태그로 표현하고, 짧은 대화·조회·감정 표현에는 시간 태그를 붙이지 않는다. 기간을 240분/30일로 줄이거나 밤에서 멈추지 않는다. 돈은 명시한 금액 그대로: 1억 안=100000000, 1억 5000만 안=150000000. 확정된 수입·지출만 기록하고 약속·가정·다른 인물의 수입은 잔액에 넣지 않는다. 메뉴 거래와 돈 태그는 중복 적용하지 않는다.';};
 
 </script>
+<!-- LIMBUS SKIN -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Noto+Serif+KR:wght@700;900&display=swap">
+<style>
+/* =========================================================
+   림버스풍 스킨 — 검은 바탕, 호박색·진홍색 강조, 잘린 모서리, 기울어진 탭
+   (원작 이미지·로고는 쓰지 않고 CSS만으로 분위기를 낸다)
+========================================================= */
+:root{
+  --bg:#0a0806;--panel:#14100c;--panel2:#1d1711;--line:#3b2f22;--text:#ecdfc5;--dim:#9b8b72;
+  --gold:#f0ad2e;--red:#c9302a;--on-accent:#140e07;--gold-soft:rgba(240,173,46,.1);
+  --topbar-bg:rgba(8,6,4,.92);--overlay:rgba(0,0,0,.78);--shadow:0 10px 30px rgba(0,0,0,.55);
+  --input-bg:#0f0c09;--clog-bg:#0c0907;--hb-bg:#050403;--light-off:#2d261d;--scroll:#4a3b2a;
+  --intent-bg:#1a0e0c;--intent-line:#5a2621;--bubble-bg:#2a1f12;--bubble-line:#6b5226;--bubble-text:#f4e6c8;
+  --night-bg:rgba(201,48,42,.1);
+  --cut:10px;--cut-s:6px;
+  --serif:"Noto Serif KR","Pretendard Variable",serif;--num:"Oswald","Pretendard Variable",sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#e9dfcc;--panel:#f6efe0;--panel2:#ebe0c9;--line:#c4b08c;--text:#22180e;--dim:#6b5940;
+  --gold:#a86d08;--red:#a3271f;--on-accent:#fff8ea;--gold-soft:rgba(168,109,8,.1);
+  --topbar-bg:rgba(233,223,204,.94);--overlay:rgba(30,20,8,.5);--shadow:0 8px 24px rgba(60,40,10,.18);
+  --input-bg:#fbf6ea;--clog-bg:#f1e8d6;--hb-bg:#d6c8ab;--light-off:#cbbb9b;--scroll:#b9a37b;
+  --intent-bg:#f6e3dc;--intent-line:#d9a89e;--bubble-bg:#efe0bd;--bubble-line:#c9a964;--bubble-text:#2b1f0c;
+}
+@media (prefers-color-scheme:light){:root[data-theme="system"]{
+  --bg:#e9dfcc;--panel:#f6efe0;--panel2:#ebe0c9;--line:#c4b08c;--text:#22180e;--dim:#6b5940;
+  --gold:#a86d08;--red:#a3271f;--on-accent:#fff8ea;--gold-soft:rgba(168,109,8,.1);
+  --topbar-bg:rgba(233,223,204,.94);--overlay:rgba(30,20,8,.5);--shadow:0 8px 24px rgba(60,40,10,.18);
+  --input-bg:#fbf6ea;--clog-bg:#f1e8d6;--hb-bg:#d6c8ab;--light-off:#cbbb9b;--scroll:#b9a37b;
+  --intent-bg:#f6e3dc;--intent-line:#d9a89e;--bubble-bg:#efe0bd;--bubble-line:#c9a964;--bubble-text:#2b1f0c;
+}}
+
+/* 바탕: 위쪽의 희미한 불빛 + 아주 옅은 사선 결 */
+html,body{background:
+  radial-gradient(ellipse 90% 50% at 50% -10%,color-mix(in srgb,var(--gold) 9%,transparent),transparent 70%),
+  repeating-linear-gradient(135deg,color-mix(in srgb,var(--text) 2.2%,transparent) 0 1px,transparent 1px 7px),
+  var(--bg) fixed}
+
+/* 제목류는 묵직한 명조 */
+h1,h2,h3,#event h3,#modal h3,#preFight h3,.origin h2,.unit .nm,.resume-card .rc-name{font-family:var(--serif);font-weight:900;letter-spacing:.5px}
+/* 숫자·짧은 표기는 좁은 고딕 */
+.stat b,#clock,.card .cost,.bars,.tier,.intent .vs b,.turns span,.speed button,.stagger,#pileInfo,.light{font-family:var(--num);letter-spacing:.4px}
+
+/* ── 잘린 모서리 패널 + 왼쪽 위 호박색 표식 ── */
+#log,#event,#combat .unit,.newlife,.resume-card,#historyArea .history-row,.origin,.intent,#clog,#preFight,#modal .box,.char{
+  border-radius:0!important;
+  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));
+  background-image:linear-gradient(135deg,var(--gold) 0 calc(var(--cut) * .72),transparent calc(var(--cut) * .72)),linear-gradient(180deg,color-mix(in srgb,var(--text) 3%,transparent),transparent 40%);
+  background-repeat:no-repeat}
+#preFight,.intent{background-image:linear-gradient(135deg,var(--red) 0 calc(var(--cut) * .72),transparent calc(var(--cut) * .72)),linear-gradient(180deg,color-mix(in srgb,var(--red) 8%,transparent),transparent 50%)}
+#log,#combat .unit,.newlife,#historyArea .history-row,.origin,.char{border-color:var(--line)}
+#event{border:1px solid var(--line);border-top:2px solid var(--gold)}
+#modal .box{border:1px solid var(--line);border-top:3px solid var(--gold)}
+#modal{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+
+/* ── 버튼: 각진 평행사변형 ── */
+button{border-radius:0;background:linear-gradient(180deg,color-mix(in srgb,var(--panel2) 100%,var(--text) 4%),var(--panel));border-color:var(--line);
+  clip-path:polygon(var(--cut-s) 0,100% 0,calc(100% - var(--cut-s)) 100%,0 100%);padding-left:16px;padding-right:16px}
+button:hover:not(:disabled){background:var(--gold);color:var(--on-accent);border-color:var(--gold)}
+button.on{background:var(--gold);color:var(--on-accent);border-color:var(--gold);font-weight:700}
+.roll-btn,#resumeBtn,#resolveBtn,#aiSend,#preFight .pf-btns button:first-child{background:var(--gold)!important;color:var(--on-accent)!important;border-color:var(--gold)!important;font-family:var(--serif);font-weight:900;letter-spacing:1px}
+.roll-btn:hover:not(:disabled),#resumeBtn:hover,#resolveBtn:hover:not(:disabled){filter:brightness(1.12)}
+#preFight .pf-btns button:last-child{border-color:var(--red)}
+#preFight .pf-btns button:last-child:hover{background:var(--red);border-color:var(--red);color:#fff}
+.theme-btn,#toChat{clip-path:polygon(var(--cut-s) 0,100% 0,calc(100% - var(--cut-s)) 100%,0 100%);border-radius:0!important}
+#toChat{background:var(--panel);padding-left:16px!important;padding-right:16px!important}
+#toChat:hover{background:var(--gold);color:var(--on-accent)}
+#codeTitleBtns button{clip-path:none;background:transparent!important}
+#codeTitleBtns button:hover{color:var(--gold)!important}
+
+/* 선택지: 왼쪽에 굵은 띠가 있는 긴 막대 */
+.choices button{clip-path:none;border-radius:0!important;border:1px solid var(--line);border-left:4px solid var(--gold);background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 7%,var(--panel)),var(--panel) 60%);padding:11px 14px 11px 16px}
+.choices button:hover:not(:disabled){background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 22%,var(--panel)),var(--panel));color:var(--text);border-color:var(--gold)}
+.choices button:disabled{border-left-color:var(--line)}
+.head-shattered::before,.head-shattered::after{border-radius:0!important}
+
+/* ── 시작 화면 ── */
+#title h1{font-size:44px;letter-spacing:8px;color:var(--text);margin-top:46px;position:relative;padding-bottom:14px;text-shadow:0 2px 0 rgba(0,0,0,.35)}
+#title h1::after{content:'';position:absolute;left:50%;bottom:0;width:180px;height:5px;transform:translateX(-50%) skewX(-30deg);background:linear-gradient(90deg,var(--red) 0 62%,transparent 62% 66%,var(--gold) 66%)}
+#title .tagline{font-family:var(--num);font-size:13px;letter-spacing:5px;color:var(--gold);margin:12px 0 26px;text-transform:uppercase}
+#title .night-rule{border-left:4px solid var(--red);border-radius:0}
+.newlife > h2,.resume-card .rc-label,#historyArea h2{font-family:var(--num);text-transform:uppercase;letter-spacing:3px;font-weight:600;color:var(--gold);font-size:14px}
+.newlife > h2::before{content:'NEW LIFE · ';color:var(--dim)}
+.resume-card .rc-label::before{content:'CONTINUE · ';color:var(--dim)}
+#historyArea h2::before{content:'RECORDS · ';color:var(--dim)}
+.resume-card{border-color:var(--gold)}
+.tier{border-radius:0;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);padding:2px 10px}
+.origin.t4{box-shadow:none;border-color:var(--gold)}
+.origin.t5{box-shadow:none;border-color:var(--red)}
+
+/* ── 상단 바 ── */
+#topbar{border-bottom:2px solid var(--gold);box-shadow:0 1px 0 var(--red),0 8px 22px rgba(0,0,0,.45)}
+#clock{color:var(--gold);font-size:16px}
+.stat b{color:var(--gold);font-weight:600}
+.timer{height:7px;border-radius:0;background:var(--hb-bg);position:relative}
+.timer::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(12.5% - 2px),var(--bg) calc(12.5% - 2px) 12.5%);pointer-events:none}
+.timer>i{background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 60%,var(--red)),var(--gold))}
+.timer.night>i{background:linear-gradient(90deg,#6d0f0b,var(--red))}
+.turns{gap:6px}
+.turns span{border-radius:0!important;transform:skewX(-14deg);background:var(--panel2);border:1px solid var(--line);text-transform:uppercase}
+.turns span.cur{background:var(--gold);border-color:var(--gold);color:var(--on-accent)}
+.speed button{clip-path:none;border-radius:0;transform:skewX(-10deg);padding:4px 10px}
+.menu-btns button{font-family:var(--serif);font-weight:700}
+
+/* ── 로그 ── */
+#log{background-color:var(--panel)}
+.l-day{border-top:none;display:flex;align-items:center;gap:10px;font-family:var(--serif);font-weight:900;letter-spacing:1px;color:var(--gold)}
+.l-day::before,.l-day::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line))}
+.l-day::after{background:linear-gradient(90deg,var(--line),transparent)}
+.l-turn{font-family:var(--num);letter-spacing:1px}
+.l-night{text-shadow:0 0 12px color-mix(in srgb,var(--red) 50%,transparent)}
+#event h3{display:flex;align-items:center;gap:10px}
+#event h3::before{content:'';width:6px;height:1.05em;background:var(--gold);transform:skewX(-14deg);flex:none}
+
+/* ── 전투 ── */
+#combat .unit{background-color:var(--panel)}
+#eBox{border-top:2px solid var(--red)!important}
+#pBox{border-top:2px solid var(--gold)!important}
+.unit .nm{font-size:18px}
+.hb{height:9px;border-radius:0;position:relative;transform:skewX(-18deg)}
+.hb::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 9px,rgba(0,0,0,.45) 9px 10px);pointer-events:none}
+.hb.hp i{background:linear-gradient(90deg,#7a1410,var(--red))}
+.hb.sg i{background:linear-gradient(90deg,#9c6a12,var(--gold))}
+.status span{border-radius:0;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);padding:1px 9px}
+.light{gap:5px}
+.light i{border-radius:0;width:10px;height:10px;transform:rotate(45deg);margin:0 1px}
+.light i.f{box-shadow:0 0 8px var(--gold)}
+.intent .slot{font-family:var(--num);letter-spacing:1px;text-transform:uppercase}
+.intent .vs b{font-size:15px}
+.played span{border-radius:0;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);padding:2px 12px}
+
+/* 카드 → 스킬 패: 위쪽 띠·안쪽 테두리·마름모 비용 */
+.card{border-radius:0!important;border:1px solid var(--line);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 10%,var(--panel2)) 0 30px,var(--panel2) 30px),var(--panel2);
+  box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px color-mix(in srgb,var(--gold) 28%,transparent);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));overflow:visible}
+.card:hover{border-color:var(--gold);box-shadow:inset 0 0 0 3px var(--panel),inset 0 0 0 4px var(--gold),0 8px 18px rgba(0,0,0,.4)}
+.card .cost{border-radius:0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);width:28px;height:28px;top:3px;left:3px;font-size:13px}
+.card .nm{margin-left:26px;font-family:var(--serif);font-weight:700}
+.die{border-radius:0;clip-path:polygon(0 0,100% 0,calc(100% - 5px) 100%,0 100%);padding-right:10px}
+
+/* ── 서술 모드 입력창·말풍선 ── */
+#aiBar{border-top:2px solid var(--gold)}
+#aiInput{border-radius:0!important}
+body.ai-on .ai-line .ai-me{border-radius:0!important;clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px)}
+
+/* 자잘한 둥근 요소들 */
+#messageJump{border-radius:0!important;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);background:var(--gold)!important;color:var(--on-accent)!important;border-color:var(--gold)!important;font-weight:700;padding-left:18px;padding-right:18px}
+[style*="border-radius:4px"][style*="var(--gold)"]{border-radius:0!important;transform:skewX(-12deg);font-family:var(--num)}
+#historyArea h2 .dim{letter-spacing:0;text-transform:none;font-family:"Pretendard Variable",sans-serif}
+.menu-btns button{padding:5px 14px!important;font-size:13px!important}
+
+/* 입력칸 */
+input,select,textarea{border-radius:0!important}
+
+/* 스크롤바 */
+::-webkit-scrollbar-thumb{border-radius:0}
+
+@media (max-width:600px){
+  #title h1{font-size:32px;letter-spacing:5px;margin-top:20px}
+  :root{--cut:8px}
+  .card .nm{margin-left:24px}
+}
+@media (prefers-reduced-motion:reduce){ .card:hover{transform:none} }
+</style>
+<!-- /LIMBUS SKIN -->
 </body>
 </html>
