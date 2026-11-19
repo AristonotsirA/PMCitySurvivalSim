@@ -11096,6 +11096,126 @@ body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
   body.ai-v2 #aiBar .hint{display:none}
 }
 </style>
+<script>
+/* =========================================================
+   서술 모드 — 직접 설정해서 시작
+   무작위 뽑기는 그대로 두고, 출신·소속·등급·태어난 곳·자금·체력을 골라 시작한다.
+   출신은 게임의 buildOrigin()으로 만들고, 고른 항목만 덮어쓴다 (비워 둔 칸은 출신 그대로)
+========================================================= */
+(() => {
+  const KEY = 'sht_custom';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) { return {}; } };
+  const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (_) {} };
+  const OUT = { area: 'outskirts', label: '외곽', note: '괴물과 버려진 것들이 득실거리는 도시 바깥' };
+  const isAi = () => $('#heroMode') && $('#heroMode').value === 'ai';
+
+  // 시작 화면에 버튼 — 서술 모드일 때만 보인다
+  const bc = document.querySelector('.birth-controls');
+  bc.insertAdjacentHTML('afterend', '<button id="customBtn" type="button" class="hidden">직접 설정해서 시작 — 출신·소속·등급·장소·자금</button>');
+  const btn = $('#customBtn');
+  const sync = () => btn.classList.toggle('hidden', !isAi());
+  $('#heroMode').addEventListener('change', sync); sync();
+
+  // 고른 값을 출신에 덮어쓴다
+  function build(v) {
+    const o = ORIGINS.find(x => x.id === v.origin) || ORIGINS[0];
+    const fingerKey = o.variant === 'finger' && FINGER_KEYS.includes(v.aff) ? v.aff : undefined;
+    const ch = buildOrigin(o, fingerKey);
+    if (v.aff && !fingerKey && !AFFS[ch.aff].locked && AFFS[v.aff] && v.aff !== ch.aff) {
+      ch.aff = v.aff; delete ch.affTitle;
+      if (v.aff === 'gang') ch.gangFinger = ch.gangFinger || pick(GANG_FINGERS); else delete ch.gangFinger;
+    }
+    const g = +v.grade;
+    if (g >= 1 && g <= 9) {
+      ch.grade = g;
+      if (ch.vampRank) ch.vampRank = g;
+      if (ch.id === 'fixer') ch.name = ch.name.replace(/^\d급/, g + '급');
+    }
+    const money = v.money ? aiReadAmount(String(v.money)) : null;
+    if (money !== null && money >= 0) ch.money = money;
+    const hp = parseInt(v.hp, 10);
+    if (hp >= 10 && hp <= 2000) { ch.hp = hp; ch.fixedHp = hp; }   // 직접 적은 체력은 위상 보정·외곽 보너스 없이 그대로
+    if (v.place === 'out') ch.loc = { ...OUT };
+    else if (+v.place >= 1 && +v.place <= 25) {
+      const n = +v.place, L = String.fromCharCode(64 + n), a = v.area === '둥지' ? '둥지' : '뒷골목';
+      ch.loc = { area: a, n, letter: L, label: cityLabel(n, a), note: WING_NOTE[L] || '' };
+    } else ch.loc = rollBirthplace(ch);
+    if (ch.deck.includes('col_sig') && !ch.colorCard) ch.colorCard = JSON.parse(JSON.stringify(CARDS.col_sig));
+    ch.custom = true;
+    return ch;
+  }
+
+  function form() {
+    const v = load(), box = $('#rollResult');
+    const tiers = [...new Set(ORIGINS.map(o => o.tier))].sort();
+    const originOpts = tiers.map(t => `<optgroup label="${TIER_NAME[t] || ''}">${ORIGINS.filter(o => o.tier === t).map(o => `<option value="${o.id}">${escAI(o.label || o.name)}</option>`).join('')}</optgroup>`).join('');
+    const affOpts = '<option value="">출신 그대로</option>' + Object.entries(AFFS).filter(([k, a]) => !a.locked && k !== 'color').map(([k, a]) => `<option value="${k}">${escAI(a.name)}</option>`).join('');
+    const gradeOpts = '<option value="">출신 그대로</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<option value="${g}">${g}급 · 위상 ${10 - g}단계${g === 1 ? ' (가장 높음)' : g === 9 ? ' (가장 낮음)' : ''}</option>`).join('');
+    const placeOpts = '<option value="">무작위</option><option value="out">외곽</option>' + Array.from({ length: 25 }, (_, i) => `<option value="${i + 1}">${i + 1}구 ${String.fromCharCode(65 + i)}사</option>`).join('');
+    box.innerHTML = `<div class="origin custom-start">
+      <span class="tier">직접 설정</span>
+      <h2>원하는 삶으로 시작한다</h2>
+      <p class="dim" style="font-size:13px;margin:4px 0 12px">비워 둔 칸은 고른 출신의 기본값을 따릅니다. 이름·성별은 위 칸에서 정합니다. 시작한 뒤에도 채팅으로 바꿀 수 있습니다.</p>
+      <div class="ai-form cs-grid">
+        <label>출신 <select id="csOrigin">${originOpts}</select></label>
+        <label>소속 <select id="csAff">${affOpts}</select></label>
+        <label>등급 <select id="csGrade">${gradeOpts}</select></label>
+        <label>태어난 곳 <span class="cs-row"><select id="csPlace">${placeOpts}</select><select id="csArea"><option>뒷골목</option><option>둥지</option></select></span></label>
+        <label>자금 <input id="csMoney" placeholder="예: 500만, 3억 (비우면 기본)" autocomplete="off"></label>
+        <label>체력 <input id="csHp" type="number" min="10" max="2000" placeholder="비우면 기본"></label>
+      </div>
+      <div id="csPrev" class="cs-prev"></div>
+      <div class="cs-btns"><button id="csGo" type="button">이 설정으로 시작한다</button><button id="csCancel" type="button">취소</button></div></div>`;
+    const set = (id, val) => { if (val !== undefined && val !== null) $(id).value = val; };
+    set('#csOrigin', v.origin || 'rat'); set('#csAff', v.aff || ''); set('#csGrade', v.grade || ''); set('#csPlace', v.place || ''); set('#csArea', v.area || '뒷골목'); set('#csMoney', v.money || ''); set('#csHp', v.hp || '');
+    const read = () => ({ origin: $('#csOrigin').value, aff: $('#csAff').value, grade: $('#csGrade').value, place: $('#csPlace').value, area: $('#csArea').value, money: $('#csMoney').value.trim(), hp: $('#csHp').value.trim() });
+    const preview = () => {
+      const r = read(), o = ORIGINS.find(x => x.id === r.origin);
+      const locked = o && (o.aff && AFFS[o.aff] && AFFS[o.aff].locked || o.variant === 'vampire');
+      $('#csAff').disabled = !!locked; if (locked) $('#csAff').value = '';
+      $('#csArea').disabled = !(+r.place >= 1);
+      const ch = build(read()), a = AFFS[ch.aff];
+      const badMoney = r.money && aiReadAmount(r.money) === null;
+      $('#csPrev').innerHTML = `<b>${escAI(ch.name)}</b> · 소속 ${escAI(ch.affTitle || (ch.vampRank ? `혈귀 — 제${ch.vampRank}권속` : affName(ch.aff, ch.grade, ch.gangFinger)))} · ${a.fixer ? ch.grade + '급 해결사' : '위상 ' + (10 - ch.grade) + '단계'}<br>`
+        + `태어난 곳 ${escAI(+r.place >= 1 || r.place === 'out' ? ch.loc.label : '무작위')} · 자금 ${won(ch.money)} · 체력 ${ch.hp}`
+        + (locked ? '<br><span class="dim">이 출신은 소속을 바꿀 수 없다.</span>' : '')
+        + (badMoney ? '<br><span class="l-bad">자금을 읽지 못했다 — 숫자와 만·억 단위로 적어 주세요.</span>' : '')
+        + `<div class="dim" style="margin-top:6px">${ch.intro || ''}</div>`;
+    };
+    box.querySelectorAll('select,input').forEach(el => el.addEventListener('input', preview));
+    preview();
+    $('#csCancel').onclick = () => { box.innerHTML = ''; };
+    $('#csGo').onclick = () => {
+      const r = read(); save(r);
+      $('#csGo').disabled = true;
+      newGame(build(r));
+    };
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  btn.onclick = () => { if (!aiCfg().key) { aiSettings(); return; } form(); };
+  const _tierBoostCs = tierBoost;
+  tierBoost = function () {
+    const fixed = S && S.ch && S.ch.fixedHp && !S.flags.tierBoost ? S.ch.fixedHp : 0;
+    const r = _tierBoostCs();
+    if (fixed) { S.maxHp = fixed; S.hp = fixed; }
+    return r;
+  };
+})();
+</script>
+<style>
+#customBtn{width:100%;margin-top:8px;min-height:44px;font-size:14px;background:transparent;border:1px dashed color-mix(in srgb,var(--gold) 60%,var(--line));color:var(--gold);clip-path:none}
+#customBtn:hover{background:var(--gold-soft);color:var(--gold)}
+.custom-start{max-width:720px}
+.custom-start .tier{background:var(--gold);color:var(--on-accent);font-weight:700;font-size:12px}
+.custom-start .cs-grid label{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin:7px 0}
+.custom-start .cs-row{display:flex;gap:6px;min-width:0}
+.custom-start .cs-row select:first-child{flex:2}.custom-start .cs-row select:last-child{flex:1}
+.custom-start select:disabled{opacity:.45}
+.custom-start .cs-prev{margin:12px 0;padding:10px 12px;border-left:3px solid var(--gold);background:var(--panel2);font-size:13.5px;line-height:1.7}
+.custom-start .cs-btns{display:flex;gap:8px}
+.custom-start #csGo{flex:1;min-height:46px;background:var(--gold)!important;color:var(--on-accent)!important;border-color:var(--gold)!important;font-weight:800}
+@media (max-width:600px){.custom-start .cs-grid label{grid-template-columns:1fr;gap:4px}}
+</style>
 <!-- /NARRATIVE MODE V2 -->
 </body>
 </html>
