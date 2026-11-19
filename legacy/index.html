@@ -11117,14 +11117,40 @@ body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
   $('#heroMode').addEventListener('change', sync); sync();
 
   // 고른 값을 출신에 덮어쓴다
+  // 글자 비교용: 공백·괄호·「」를 뺀다
+  const norm = t => String(t || '').replace(/[\s()（）「」\[\]·\-—]/g, '').toLowerCase();
+  const originByText = t => { const n = norm(t); if (!n) return null;
+    return ORIGINS.find(o => norm(o.label || o.name) === n || norm(o.name) === n || (o.label && norm(o.label).startsWith(n) && n.length >= 2)) || null; };
+  // 소속 글자 → 게임 규칙에 쓸 소속. 이름이 같으면 그 소속, 아니면 낱말로 가장 가까운 것을 고른다
+  function affByText(t) {
+    const n = norm(t); if (!n) return null;
+    const hit = Object.keys(AFFS).find(k => norm(AFFS[k].name) === n) || Object.keys(AFFS).find(k => (AFFS[k].ranks || []).some(r => norm(r) === n));
+    if (hit) return { key: hit, exact: true };
+    const by = (re, key) => re.test(t) ? key : null;
+    const assoc = Object.keys(AFFS).find(k => AFFS[k].faction === 'assoc' && n.includes(norm(AFFS[k].name).replace('협회', '')) && /협회/.test(t));
+    const key = assoc
+      || by(/엄지/, 'f_thumb') || by(/검지/, 'f_index') || by(/중지/, 'f_middle') || by(/약지/, 'f_ring') || by(/소지/, 'f_pinky')
+      || by(/발톱/, 'claw') || by(/응시자/, 'watcher') || by(/조율자/, 'arbiter')
+      || by(/특색/, 'color') || by(/협회|해결사|사무소|용병/, 'fixer')
+      || by(/날개|깃털|둥지|[A-Z]사\s*(?:직원|소속|사원|요원)|회사/, 'wing')
+      || by(/조직|파벌|패거리|갱|두목|보스/, 'gang') || 'street';
+    return { key, exact: false };
+  }
   function build(v) {
-    const o = ORIGINS.find(x => x.id === v.origin) || ORIGINS[0];
-    const fingerKey = o.variant === 'finger' && FINGER_KEYS.includes(v.aff) ? v.aff : undefined;
+    const typedOrigin = String(v.originText || '').trim(), typedAff = String(v.affText || '').trim();
+    let o = originByText(typedOrigin);
+    const customOrigin = !o && !!typedOrigin;
+    const af = affByText(typedAff);
+    if (!o) o = ORIGINS.find(x => x.id === 'rat');   // 게임에 없는 출신: 평범한 뒷골목 사람의 능력치에서 시작
+    const fingerKey = o.variant === 'finger' && af && FINGER_KEYS.includes(af.key) ? af.key : undefined;
     const ch = buildOrigin(o, fingerKey);
-    if (v.aff && !fingerKey && !AFFS[ch.aff].locked && AFFS[v.aff] && v.aff !== ch.aff) {
-      ch.aff = v.aff; delete ch.affTitle;
-      if (v.aff === 'gang') ch.gangFinger = ch.gangFinger || pick(GANG_FINGERS); else delete ch.gangFinger;
+    if (customOrigin) { ch.name = typedOrigin.slice(0, 30); ch.id = 'custom'; ch.intro = ''; ch.trait = '직접 정한 출신'; delete ch.hooks; delete ch.affTitle; }
+    if (af && !fingerKey && !AFFS[ch.aff].locked && af.key !== ch.aff) {
+      ch.aff = af.key; delete ch.affTitle;
+      if (af.key === 'gang') ch.gangFinger = ch.gangFinger || pick(GANG_FINGERS); else delete ch.gangFinger;
     }
+    // 게임에 없는 이름이면 그 글자를 그대로 소속 이름으로 보인다 (규칙은 위에서 고른 가장 가까운 소속)
+    if (typedAff && !(af && af.exact)) ch.customAff = typedAff.slice(0, 30);
     const g = +v.grade;
     if (g >= 1 && g <= 9) {
       ch.grade = g;
@@ -11148,17 +11174,17 @@ body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
   function form() {
     const v = load(), box = $('#rollResult');
     const tiers = [...new Set(ORIGINS.map(o => o.tier))].sort();
-    const originOpts = tiers.map(t => `<optgroup label="${TIER_NAME[t] || ''}">${ORIGINS.filter(o => o.tier === t).map(o => `<option value="${o.id}">${escAI(o.label || o.name)}</option>`).join('')}</optgroup>`).join('');
-    const affOpts = '<option value="">출신 그대로</option>' + Object.entries(AFFS).filter(([k, a]) => !a.locked && k !== 'color').map(([k, a]) => `<option value="${k}">${escAI(a.name)}</option>`).join('');
+    const originOpts = tiers.flatMap(t => ORIGINS.filter(o => o.tier === t).map(o => `<option value="${escAI(o.label || o.name)}">${TIER_NAME[t] || ''}</option>`)).join('');
+    const affOpts = [...new Set(Object.values(AFFS).flatMap(a => [a.name, ...(a.ranks || [])]))].map(n => `<option value="${escAI(n)}">`).join('');
     const gradeOpts = '<option value="">출신 그대로</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<option value="${g}">${g}급 · 위상 ${10 - g}단계${g === 1 ? ' (가장 높음)' : g === 9 ? ' (가장 낮음)' : ''}</option>`).join('');
     const placeOpts = '<option value="">무작위</option><option value="out">외곽</option>' + Array.from({ length: 25 }, (_, i) => `<option value="${i + 1}">${i + 1}구 ${String.fromCharCode(65 + i)}사</option>`).join('');
     box.innerHTML = `<div class="origin custom-start">
       <span class="tier">직접 설정</span>
       <h2>원하는 삶으로 시작한다</h2>
-      <p class="dim" style="font-size:13px;margin:4px 0 12px">비워 둔 칸은 고른 출신의 기본값을 따릅니다. 이름·성별은 위 칸에서 정합니다. 시작한 뒤에도 채팅으로 바꿀 수 있습니다.</p>
+      <p class="dim" style="font-size:13px;margin:4px 0 12px">출신·소속은 자유롭게 적을 수 있습니다. 목록에 있는 이름이면 게임의 그 규칙을 그대로 쓰고, 새 이름이면 적은 그대로 표시하고 가장 가까운 규칙을 따릅니다. 비워 둔 칸은 출신의 기본값. 이름·성별은 위 칸에서 정합니다.</p>
       <div class="ai-form cs-grid">
-        <label>출신 <select id="csOrigin">${originOpts}</select></label>
-        <label>소속 <select id="csAff">${affOpts}</select></label>
+        <label>출신 <input id="csOrigin" list="csOriginList" maxlength="30" placeholder="예: 뒷골목의 쥐 / 몰락한 둥지 귀족의 막내" autocomplete="off"><datalist id="csOriginList">${originOpts}</datalist></label>
+        <label>소속 <input id="csAff" list="csAffList" maxlength="30" placeholder="비우면 출신 그대로 · 예: 츠바이 협회 / 하얀 꽃 사무소" autocomplete="off"><datalist id="csAffList">${affOpts}</datalist></label>
         <label>등급 <select id="csGrade">${gradeOpts}</select></label>
         <label>태어난 곳 <span class="cs-row"><select id="csPlace">${placeOpts}</select><select id="csArea"><option>뒷골목</option><option>둥지</option></select></span></label>
         <label>자금 <input id="csMoney" placeholder="예: 500만, 3억 (비우면 기본)" autocomplete="off"></label>
@@ -11167,16 +11193,17 @@ body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
       <div id="csPrev" class="cs-prev"></div>
       <div class="cs-btns"><button id="csGo" type="button">이 설정으로 시작한다</button><button id="csCancel" type="button">취소</button></div></div>`;
     const set = (id, val) => { if (val !== undefined && val !== null) $(id).value = val; };
-    set('#csOrigin', v.origin || 'rat'); set('#csAff', v.aff || ''); set('#csGrade', v.grade || ''); set('#csPlace', v.place || ''); set('#csArea', v.area || '뒷골목'); set('#csMoney', v.money || ''); set('#csHp', v.hp || '');
-    const read = () => ({ origin: $('#csOrigin').value, aff: $('#csAff').value, grade: $('#csGrade').value, place: $('#csPlace').value, area: $('#csArea').value, money: $('#csMoney').value.trim(), hp: $('#csHp').value.trim() });
+    set('#csOrigin', v.originText || '뒷골목의 쥐'); set('#csAff', v.affText || ''); set('#csGrade', v.grade || ''); set('#csPlace', v.place || ''); set('#csArea', v.area || '뒷골목'); set('#csMoney', v.money || ''); set('#csHp', v.hp || '');
+    const read = () => ({ originText: $('#csOrigin').value.trim(), affText: $('#csAff').value.trim(), grade: $('#csGrade').value, place: $('#csPlace').value, area: $('#csArea').value, money: $('#csMoney').value.trim(), hp: $('#csHp').value.trim() });
     const preview = () => {
-      const r = read(), o = ORIGINS.find(x => x.id === r.origin);
+      const r = read(), o = originByText(r.originText);
       const locked = o && (o.aff && AFFS[o.aff] && AFFS[o.aff].locked || o.variant === 'vampire');
       $('#csAff').disabled = !!locked; if (locked) $('#csAff').value = '';
       $('#csArea').disabled = !(+r.place >= 1);
       const ch = build(read()), a = AFFS[ch.aff];
       const badMoney = r.money && aiReadAmount(r.money) === null;
-      $('#csPrev').innerHTML = `<b>${escAI(ch.name)}</b> · 소속 ${escAI(ch.affTitle || (ch.vampRank ? `혈귀 — 제${ch.vampRank}권속` : affName(ch.aff, ch.grade, ch.gangFinger)))} · ${a.fixer ? ch.grade + '급 해결사' : '위상 ' + (10 - ch.grade) + '단계'}<br>`
+      const rule = ch.customAff ? ` <span class="dim">(규칙: ${escAI(AFFS[ch.aff].name)})</span>` : '';
+      $('#csPrev').innerHTML = `<b>${escAI(ch.name)}</b>${ch.id === 'custom' ? ' <span class="dim">(새 출신 · 능력치는 뒷골목 사람 기준)</span>' : ''} · 소속 ${escAI(ch.customAff || ch.affTitle || (ch.vampRank ? `혈귀 — 제${ch.vampRank}권속` : affName(ch.aff, ch.grade, ch.gangFinger)))}${rule} · ${a.fixer ? ch.grade + '급 해결사' : '위상 ' + (10 - ch.grade) + '단계'}<br>`
         + `태어난 곳 ${escAI(+r.place >= 1 || r.place === 'out' ? ch.loc.label : '무작위')} · 자금 ${won(ch.money)} · 체력 ${ch.hp}`
         + (locked ? '<br><span class="dim">이 출신은 소속을 바꿀 수 없다.</span>' : '')
         + (badMoney ? '<br><span class="l-bad">자금을 읽지 못했다 — 숫자와 만·억 단위로 적어 주세요.</span>' : '')
@@ -11193,6 +11220,12 @@ body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
     box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   btn.onclick = () => { if (!aiCfg().key) { aiSettings(); return; } form(); };
+  const _newGameCs = newGame;
+  newGame = function (ch) {
+    const r = _newGameCs(ch);
+    if (S && S.ch === ch && ch.customAff) { S.title = ch.customAff; S._h = null; renderTop(); }
+    return r;
+  };
   const _tierBoostCs = tierBoost;
   tierBoost = function () {
     const fixed = S && S.ch && S.ch.fixedHp && !S.flags.tierBoost ? S.ch.fixedHp : 0;
