@@ -7734,7 +7734,7 @@ async function aiCallOnce(cfg, history) {
       const fb = /^claude-(opus|sonnet)-5-5$/.test(model);   // 거절 시 서버가 다른 모델로 넘겨 준다
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', signal: ctl.signal,
         headers: { 'content-type': 'application/json', 'x-api-key': cfg.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true', ...(fb ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}) },
-        body: JSON.stringify({ model, max_tokens: 2000, system, messages: history, output_config: { effort: 'low' }, ...(fb ? { fallbacks: 'default' } : {}) }) });
+        body: JSON.stringify({ model, max_tokens: 4000, system, messages: history, output_config: { effort: 'medium' }, ...(fb ? { fallbacks: 'default' } : {}) }) });
       const j = await r.json();
       if (!r.ok) throw aiErr(r, j);
       if (j.stop_reason === 'refusal') return '(서술자가 이 장면을 묘사하지 않았다.)';
@@ -8037,12 +8037,12 @@ function aiApplyTags(reply) {
   const grade0 = S.grade;
   const mr = num(/\[\[\s*실적\s*([+-]?\s*[\d,]+)\s*\]\]/);
   if (mr && !inCombat) merit(Math.max(-5, Math.min(3, mr)));
-  // 등급: 실적을 그 등급 기준까지 채워 원래의 승급 처리(체력·흐트러짐·승급 보상)를 그대로 거친다. 한 번에 두 단계까지
+  // 등급: 실적을 그 등급 기준까지 채워 원래의 승급 처리(체력·흐트러짐·승급 보상)를 그대로 거친다.
+  // 서술 모드에서는 플레이어가 말한 등급까지 한 번에 오른다 (예전의 '한 번에 두 단계' 제한은 채팅 제어와 맞지 않아 뺐다)
   const gr = num(/\[\[\s*등급\s*(\d)\s*(?:급|단계)?\s*\]\]/);
-  if (gr && !inCombat && faction() !== 'vampire' && faction() !== 'twisted' && gr < S.grade && Math.max(gr, grade0 - 2) < S.grade) {
-    const g = Math.max(1, gr, grade0 - 2);
+  if (gr && !inCombat && faction() !== 'vampire' && faction() !== 'twisted' && gr < S.grade) {
+    const g = Math.max(1, gr);
     if (GRADE_REQ[g] && S.merit < GRADE_REQ[g]) { S.merit = GRADE_REQ[g] - 1; merit(1); }
-    if (gr < g) aiOut(`(한 번에 두 단계까지만 오른다 — ${rankText()})`, 'l-sys');
   }
   aiApplyPlace(reply);
   aiApplyTitle(reply);
@@ -8204,7 +8204,7 @@ function aiStartFight({ lv, name, desc }) {
 }
 
 // 이야기 기억 — 서술자가 남긴 사실들. 매번 함께 보내고, 플레이어가 직접 고칠 수 있다
-const AI_HIST = 30, AI_NOTES_MAX = 40;
+const AI_HIST = 40, AI_NOTES_MAX = 40;   // 최근 20번의 주고받음을 원문 그대로 보낸다 (그 이전은 줄거리 요약으로)
 function aiRemember(t) {
   t = String(t).replace(/\s+/g, ' ').trim().slice(0, 90); if (!t) return;
   S.aiNotes = S.aiNotes || [];
@@ -8310,7 +8310,7 @@ setSpeed = function (v) {
   return _setSpeedAI(v);
 };
 const _newGameAI = newGame;
-newGame = function (ch) { _newGameAI(ch); S.aiMode = $('#heroMode') && $('#heroMode').value === 'ai'; S.aiHist = []; if (S.aiMode) say('AI 서술 모드 — 하단 대화창에 행동·묘사·대사를 입력하면 서술자가 장면을 이어 씁니다.', 'l-sys'); renderTop(); };
+newGame = function (ch) { _newGameAI(ch); S.aiMode = $('#heroMode') && $('#heroMode').value === 'ai'; S.aiHist = []; if (S.aiMode) say('서술 모드 — 행동·대사를 적으면 서술자가 이어 씁니다. 이동·직급·돈·동료·싸움도 모두 채팅으로. 상태가 틀렸다면 (괄호)로 바로잡으세요.', 'l-sys'); renderTop(); };
 const _renderTopAI = renderTop;
 renderTop = function () { _renderTopAI(); const on = !!(S && S.aiMode && S.phase !== 'over'); $('#aiBar').classList.toggle('hidden', !on); document.body.classList.toggle('ai-on', on); };
 const _gameOverAI = gameOver;
@@ -9780,14 +9780,7 @@ function staffDedupe() {
         if (g) { const h = staffFind(g[1]); if (h && staffSetGrade(h, g[2])) done.add(h.id + 'g'); }
         if (w) { const h = staffFind(w[1]); if (h && staffGiveWeapon(h, w[2])) done.add(h.id + 'w'); }
       }
-      // 서술자가 태그를 빠뜨려도 플레이어 입력대로 — 이름이 들어 있는 동료만
-      const msg = (aiLast && aiLast.msg) || '';
-      for (const h of staffAll()) {
-        const b = staffBase(h.name); if (!b || !msg.includes(b)) continue;
-        const seg = msg.slice(msg.indexOf(b));
-        const rk = seg.match(RANK); if (rk && !done.has(h.id + 'g')) staffSetGrade(h, rk[1]);
-        const gv = seg.match(GIVE); if (gv && !done.has(h.id + 'w') && !NO.test(reply)) staffGiveWeapon(h, gv[1]);
-      }
+      // 동료의 등급·무기 변화는 서술자의 [[직원 …]] 태그로만 반영한다 (입력 문장 추측은 오작동이 잦았다)
       renderTop();
     } catch (_) {}
     return r;
@@ -10116,6 +10109,7 @@ body.ai-on .ai-line:has(.ai-me) .ai-del{order:-2;align-self:center}
   const GO = /(이동|간다|갔|가자|가서|가기|가본|가 본|가려|가는\s*중|걸어\s*(?:간|갔|가)|내려(?:간|갔|가|와|왔)|나가|나간|나갔|나와|나왔|나섰|향(?:한|했|하)|도착|넘어|건너(?:간|갔)|들어(?:간|갔|가|와|왔)|돌아(?:간|갔|가|와|왔|온)|옮(?:겼|긴|기)|떠나|떠났|도망|피신|달려(?:간|갔|가)|왔다|온다|와서|들렀|들른|들러|방문|찾아(?:간|갔|가|왔|온)|출발|복귀|귀환|이사|올라(?:간|갔|가))/;
   const NEG = /(?:않|안\s*(?:가|간|갔)|못\s*(?:가|간|갔)|말자|말았|지\s*마)/;
   const SAID = /^[^\s]*?(?:다고|라고|댔|대\s|단다|냐고)/;
+  const RECALL = /어제|그제|그저께|예전|옛날|지난\s*(?:번|주|달|해|밤)|전에|기억|회상|꿈에|시절|였을\s*때|던\s*때/;
   const TIME = /^(아침|점심|저녁|밤|새벽|오후|오전|낮|내일|오늘|모레|나중|잠시|곧|다음|이따|금방|\d+\s*시|\d+\s*분|처음|마지막|드디어|결국|다시|함께|같이)$/;
   const PRON = /^(그곳|거기|여기|저기|그쪽|이쪽|저쪽|밖|안|앞|뒤|위|아래|곳|쪽|그|그녀|그들|우리|나|너|모두|혼자|천천히|빨리|곧장|바로|직접|먼저)$/;
   const CO = /(?:^|[^A-Za-z])([A-Ya-y])\s*사(?![가-힣]*(?:람|실|건|고|과|진|장님|원))/g, DI = /(\d{1,2})\s*구(?!역|석|조|멍)/g;
@@ -10130,6 +10124,8 @@ body.ai-on .ai-line:has(.ai-me) .ai-del{order:-2;align-self:center}
       const after = c.slice(vm.index + vm[0].length);
       if (NEG.test(after.slice(0, 8)) || NEG.test(c.slice(Math.max(0, vm.index - 3), vm.index))) continue;
       if (SAID.test(after)) continue;
+      // 회상·지난 일은 지금의 이동이 아니다 ('갔던', '갔었다', '어제 K사에 갔다')
+      if (/^(?:었|았)?던|^었다|^었어|^다는|^다던/.test(after) || RECALL.test(c)) continue;
       const pre = c.slice(0, vm.index);
       const at = (re) => { const out = []; re.lastIndex = 0; let m; while ((m = re.exec(pre))) out.push({ v: m[1], i: m.index + m[0].length, from: /^\s*(?:에서|으로부터|로부터|부터|출신)/.test(pre.slice(m.index + m[0].length)) }); return out.filter(x => !x.from); };
       const cos = at(CO), dis = at(DI);
@@ -10169,19 +10165,16 @@ body.ai-on .ai-line:has(.ai-me) .ai-del{order:-2;align-self:center}
   aiApplyPlace = function (reply) {
     try {
       const msg = (aiLast && aiLast.msg) || '';
-      const said = scan(msg), sub = said && said.sub;
+      const said = scan(msg);
       // 이동을 말하지 않았는데 다른 구·외곽으로 옮기려는 서술자 태그는 버린다
-      if (!said && !TRAVEL.test(msg)) {
+      // 단, 괄호·OOC로 적은 정정 지시("(내 위치는 U사야)")는 그대로 받는다
+      if (!said && !(TRAVEL.test(msg) && !RECALL.test(msg)) && !aiIsOOC(msg)) {
         reply = reply.replace(/\[\[\s*이동\s*([^\]]+?)\s*\]\]/g, (m, t) => {
           const l = t.match(/([A-Ya-y])\s*사/), d = t.match(/(\d{1,2})\s*구/), k = l ? l[1].toUpperCase().charCodeAt(0) - 64 : d ? +d[1] : 0;
           return (k && S.loc && S.loc.n && k !== S.loc.n) || (/외곽/.test(t) && !S.exiled) ? '' : m;
         });
       }
-      // 구 안의 장소를 말했다면 그 이름으로 (서술자가 그 이름을 담아 더 자세히 적었으면 그쪽)
-      if (sub) {
-        const pl = reply.match(/\[\[\s*장소\s*([^\]]+?)\s*\]\]/);
-        if (!pl || !pl[1].replace(/\s/g, '').includes(sub.replace(/\s/g, ''))) reply = reply.replace(/\[\[\s*장소[^\]]*\]\]/g, '') + `\n[[장소 ${sub}]]`;
-      }
+      // 구 안의 장소는 서술자의 [[장소]] 태그로만 바꾼다 (입력 글자만 보고 강제로 옮기면 회상·가정 문장에도 위치가 바뀌었다)
     } catch (_) {}
     return _applyPlaceMv(reply);
   };
@@ -10490,7 +10483,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offse
   document.documentElement.style.setProperty('--mobile-vh',(vv?vv.height:window.innerHeight)+'px');
   document.documentElement.style.setProperty('--keyboard-gap',gap+'px');
   document.documentElement.style.setProperty('--aibar',bar&&!bar.classList.contains('hidden')?bar.offsetHeight+'px':'0px');
-  if(input)input.placeholder=window.matchMedia('(max-width:600px), (pointer:coarse)').matches?'행동·대사 입력 (Enter 줄바꿈 · 보내기 버튼)':'행동·대사 입력 (Enter 보내기 · Shift+Enter 줄바꿈)';
+  if(input)input.placeholder=window.matchMedia('(max-width:600px), (pointer:coarse)').matches?'행동·대사를 적어 주세요':'행동·대사 입력 (Enter 보내기 · Shift+Enter 줄바꿈)';
  };
  if(input) input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(110,Math.max(56,input.scrollHeight))+'px';viewport();});
  window.addEventListener('resize',viewport,{passive:true});
@@ -10784,5 +10777,445 @@ input,select,textarea{border-radius:0!important}
 @media (prefers-reduced-motion:reduce){ .card:hover{transform:none} }
 </style>
 <!-- /LIMBUS SKIN -->
+<!-- NARRATIVE MODE V2 -->
+<script>
+/* =========================================================
+   서술 모드 v2 — 모든 것을 채팅으로
+   1) 전투 화면 없음: 싸움이 벌어지면 '대치' 상태만 기록하고, 서술자가 합을 서술하며 [[결판 …]]으로 끝낸다
+   2) 상태 변화(위치·직급·돈·일행·획득)는 서술자의 태그로만 바꾼다. 입력 문장을 정규식으로 짐작해
+      강제로 바꾸던 부분은 '변화 후보'로만 서술자에게 건넨다 (회상·가정·남의 이야기에 오작동하던 문제)
+   3) 서술자 프롬프트 재작성 — 흐름 읽기 절차, 문체·어휘 지침, 이야기 밖(OOC) 정정 지시
+   4) 긴 기억 — 매 응답의 [[요약]] 한 줄을 줄거리로 쌓아 오래된 대화가 잘려도 흐름을 잇는다
+========================================================= */
+const aiIsOOC = t => /^\s*(?:\(|（|\/\/|OOC\b|ooc\b|\[OOC)/.test(String(t || ''));
+
+/* ---------- 1. 전투 → 대치 ---------- */
+let aiThreatCb = null;   // 이벤트가 넘긴 승리·패배 처리 함수 (저장되지 않는다 — 이어하기 뒤에는 서술만으로 결판)
+const AI_THREAT_LV = { 약함: '약한 상대', 보통: '대등한 상대', 강함: '강한 상대', 위험: '목숨이 걸린 상대' };
+const _fightV2 = fight;
+fight = function (key, opts = {}) {
+  if (!aiOn()) return _fightV2(key, opts);
+  const keys = (opts.enemies && opts.enemies.length ? opts.enemies : Array.from({ length: Math.max(1, opts.count || 1) }, () => key));
+  const names = keys.map((k, i) => (i === 0 && opts.name) || (ENEMIES[k] && ENEMIES[k].name) || '상대');
+  const uniq = [...new Set(names)];
+  const d = ENEMIES[key] || {};
+  const lv = opts.lethal ? '위험' : d.elite ? '강함' : (opts.hpMul && opts.hpMul < 1) ? '약함' : '보통';
+  S.aiThreat = { names: uniq.map(n => n + (names.filter(x => x === n).length > 1 ? ` ×${names.filter(x => x === n).length}` : '')), lv, lethal: !!opts.lethal,
+    desc: String(opts.desc || d.desc || '').replace(/<[^>]+>/g, '').slice(0, 140), allies: (opts.mates || []).map(m => m.name) };
+  aiThreatCb = { win: opts.win, lose: opts.lose };
+  if (T && T.awaiting) { T.awaiting = null; $('#event').classList.add('hidden'); }
+  print(`⚔ 대치 — ${escAI(S.aiThreat.names.join(', '))}${opts.lethal ? ' · <b>목숨이 걸렸다</b>' : ''}`, 'l-bad ai-threat');
+  renderTop();
+};
+function aiResolveThreat(v) {
+  const t = S.aiThreat; if (!t) return;
+  const cb = aiThreatCb; S.aiThreat = null; aiThreatCb = null;
+  const kind = /패배|졌|쓰러졌|당했/.test(v) ? 'lose' : /승리|이겼|격퇴|제압|처치/.test(v) ? 'win' : /도주|도망|후퇴|이탈/.test(v) ? 'flee' : 'truce';
+  const word = { win: '승리', lose: '패배', flee: '도주', truce: '화해·휴전' }[kind];
+  print(`⚔ 결판 — ${escAI(t.names.join(', '))} · ${word}`, kind === 'lose' ? 'l-bad' : kind === 'win' ? 'l-good' : 'l-sys');
+  try { if (kind === 'win' && cb && cb.win) cb.win(); if (kind === 'lose' && cb && cb.lose) cb.lose(); } catch (_) {}
+  if (kind === 'flee') stress(2);
+  renderTop();
+}
+
+/* ---------- 2. 입력 문장 → '변화 후보' (자동 적용하지 않는다) ---------- */
+const AI_GUESS = { grade: aiGradeFromInput, move: aiMoveFromInput, sub: window.aiSubPlaceFromInput, gain: aiGainFromInput, life: aiLifeFromInput };
+aiGradeFromInput = () => null; aiMoveFromInput = () => null; window.aiSubPlaceFromInput = () => '';
+aiGainFromInput = () => []; aiLifeFromInput = () => []; aiTitleFromInput = () => null;
+function aiGuessHints(msg) {
+  const out = [], tryIt = f => { try { return f(); } catch (_) { return null; } };
+  const g = tryIt(() => AI_GUESS.grade(msg)); if (g) out.push(`등급 ${g} (지금 ${rankText()})`);
+  const mv = tryIt(() => AI_GUESS.move(msg)); if (mv) out.push(`이동 ${mv}`);
+  const sub = tryIt(() => AI_GUESS.sub && AI_GUESS.sub(msg)); if (sub) out.push(`장소 ${sub}`);
+  for (const x of [...(tryIt(() => AI_GUESS.gain(msg)) || []), ...(tryIt(() => AI_GUESS.life(msg)) || [])]) out.push(x);
+  return out;
+}
+
+/* ---------- 3. 태그 정리 — 직함에 문장이 통째로 들어가던 문제 ---------- */
+function aiCleanTitle(t) {
+  t = String(t || '').replace(/[「」『』"'“”]/g, '').trim();
+  t = t.replace(/^(?:이제|드디어|마침내|결국|오늘부터|지금은)?\s*(?:나는|내가|난|저는|제가|본인은|나)\s+/, '');
+  t = t.replace(/\s*(?:이|가|으로|로)?\s*(?:되었|됐|된다|되어|되었다|됐다|승진|임명|올랐|발탁|취임|달성)[\s\S]*$/, '');
+  return t.replace(/[.!?。…]+$/, '').trim();
+}
+const aiGradeOfTitle = t => { const m = String(t).replace(/\s/g, '').match(/^([1-9])급(?:해결사)?$/); return m ? +m[1] : 0; };
+function aiFixTags(reply) {
+  return reply.replace(/\[\[\s*직함\s*([^\]]+?)\s*\]\]/g, (m, raw) => {
+    const t = aiCleanTitle(raw), g = aiGradeOfTitle(t);
+    if (g) return /\[\[\s*등급/.test(reply) ? '' : `[[등급 ${g}]]`;
+    return t.length >= 2 ? `[[직함 ${t}]]` : '';
+  });
+}
+// 예전 저장에 이미 잘못 들어간 직함도 바로잡는다
+function aiFixSavedTitle() {
+  if (!S || !S.title) return;
+  const t = aiCleanTitle(S.title);
+  if (aiGradeOfTitle(t) || t.length < 2) S.title = null; else if (t !== S.title) S.title = t;
+}
+
+/* ---------- 4. 응답 후처리 — 요약·결판을 떼어 두고, 모르는 태그는 화면에서 지운다 ---------- */
+let aiPending = null;
+const AI_KNOWN_TAG = /^(선택|행동|직원|시간|체력|돈|정신|압박|평판|실적|등급|승격|소속|직함|획득|뒤틀림|해소|혈귀화|전투|장소|이동|카드|대상|진행|휴전|기억|일행|권속|피주머니|피|공방|사무소|동료|특색|집|둥지)/;
+const _aiCallV2 = aiCall;
+aiCall = async function (cfg, history, onRetry) {
+  let r = await _aiCallV2(cfg, history, onRetry);
+  if (typeof r !== 'string' || !S) return r;
+  const p = { summary: [], verdict: null };
+  r = r.replace(/\[\[\s*요약\s*([^\]]+?)\s*\]\]/g, (m, t) => { p.summary.push(t.trim()); return ''; })
+    .replace(/\[\[\s*결판\s*([^\]]*?)\s*\]\]/g, (m, t) => { p.verdict = t.trim() || '화해'; return ''; })
+    .replace(/\[\[\s*대치/g, '[[전투')
+    .replace(/\[\[\s*([^\]\s]+)[^\]]*\]\]/g, (m, k) => AI_KNOWN_TAG.test(k) ? m : '')
+    .replace(/^\s*#{1,6}\s+/gm, '').replace(/\*\*([^*]+)\*\*/g, '$1');
+  aiPending = p;
+  return r.trim();
+};
+const _aiApplyV2 = aiApplyTags;
+aiApplyTags = function (reply) {
+  const r = _aiApplyV2(aiFixTags(reply));
+  const p = aiPending; aiPending = null;
+  if (p) {
+    S.aiStory = S.aiStory || [];
+    for (const s of p.summary) { const t = s.replace(/\s+/g, ' ').slice(0, 120); if (t) S.aiStory.push(`${S.day}일 ${aiClock()} ${t}`); }
+    if (S.aiStory.length > 150) S.aiStory = S.aiStory.slice(-150);
+    if (p.verdict) aiResolveThreat(p.verdict);
+  }
+  aiFixSavedTitle(); renderTop();
+  return r;
+};
+
+/* ---------- 5. 서술자에게 보내는 상황 ---------- */
+const _aiStateV2 = aiStateText;
+aiStateText = function () {
+  let b = _aiStateV2();
+  const add = [];
+  if (S.aiThreat) {
+    const t = S.aiThreat;
+    add.push(`[대치 중 — 아직 결판나지 않은 싸움]\n상대: ${t.names.join(', ')} · ${AI_THREAT_LV[t.lv] || t.lv}${t.lethal ? ' (지면 목숨이 위험하다)' : ''}${t.desc ? `\n상대 설명: ${t.desc}` : ''}${t.allies && t.allies.length ? `\n함께 싸우는 이: ${t.allies.join(', ')}` : ''}\n플레이어: ${rankText()} · 체력 ${S.hp}/${S.maxHp}`);
+  }
+  const story = (S.aiStory || []);
+  if (story.length) add.push(`[지금까지의 줄거리 — 오래된 것부터. 최근 대화보다 앞선 일도 여기 있다]\n${story.slice(-45).map(x => '- ' + x).join('\n')}`);
+  const msg = aiLast && aiLast.msg;
+  if (msg) {
+    if (aiIsOOC(msg)) add.push('[이번 입력은 이야기 밖의 정정·지시(OOC)다. 장면을 진행하지 말고, 바로잡은 내용을 한두 문장으로 확인한 뒤 필요한 태그만 붙인다]');
+    const h = aiGuessHints(msg);
+    if (h.length) add.push(`[입력에서 읽힌 변화 후보 — 참고만. 플레이어 본인에게 지금 실제로 일어난 일이면 태그로 확정하고, 회상·가정·계획·질문·다른 사람의 일이면 무시]\n${h.map(x => '- ' + x).join('\n')}`);
+  }
+  return add.length ? b + '\n\n' + add.join('\n\n') : b;
+};
+
+/* ---------- 6. 서술자 지침 (전투 카드·주사위 대목을 빼고 다시 씀) ---------- */
+const AI_SYSTEM_V2 = `당신은 Project Moon의 '도시'(Lobotomy Corporation · Library of Ruina · Limbus Company 세계관)를 무대로 한 한국어 텍스트 롤플레이 「뒷골목의 나날」의 서술자입니다. 플레이어는 자기 캐릭터의 행동·대사·묘사를 채팅으로 적고, 당신은 그 장면을 소설처럼 이어 씁니다. 게임의 모든 진행(이동, 직급, 돈, 동료, 싸움)은 채팅과 당신이 붙이는 태그로만 이루어집니다.
+
+━ 쓰기 전에 속으로 확인할 것 (출력하지 않음) ━
+1. 직전 장면이 어디서 멈췄나 — 장소, 그 자리에 있는 사람, 마지막으로 오간 말과 행동, 분위기. [최근 기록]·[지금까지의 줄거리]·[기억해 둘 것]을 함께 본다.
+2. 이번 입력은 무엇인가 — 대사 / 행동 / 장면 전환·시간 건너뛰기 / 질문 / 이야기 밖 정정(OOC, 괄호로 감싸거나 //·OOC로 시작).
+3. 입력의 결 — 농담인가 진지한가, 위협인가 호의인가. 회상·가정("~했다면")·계획("~할 거다")·질문·다른 인물에 대한 이야기는 실제로 일어난 일이 아니다.
+4. 그 결과 실제로 바뀐 것만 태그로 남긴다.
+
+━ 문체 ━
+- 분량은 입력의 무게에 맞춘다. 짧은 대사 주고받기는 1~3문단, 새 장소 도착·중요한 만남·싸움의 고비는 3~6문단. 한 문단은 2~4문장.
+- 보여 주기: 감정을 이름 붙여 말하기보다 표정·손짓·숨·침묵의 길이로 드러낸다. 감각(냄새, 소리, 온도, 질감, 빛)을 구체적인 명사로 하나 이상 쓴다.
+- 도시의 결을 살린다: 둥지와 뒷골목의 격차, 날개의 로고와 경비, 협회 문장, 사무소 간판, 안(화폐) 단위 가격, 밤의 청소부 기계음, 특이점 기술이 스민 생활용품, 금기와 규칙의 무게.
+- 어휘를 아낀다: 직전 응답들에 쓴 비유·형용사·문장 첫머리를 되풀이하지 않는다. 피할 상투구 — "공기가 무거워졌다", "정적이 흘렀다", "묘한 미소", "눈빛이 번뜩였다", "심장이 쿵", "~인 것 같았다"의 남발, "마치 ~처럼"의 연속.
+- 대사는 큰따옴표. 인물마다 말투·높임·어휘를 분명히 다르게 쓰고, 성격을 말버릇 하나로 줄이지 않는다.
+- 플레이어 캐릭터는 [현재 상태]의 이름이나 '당신'으로 부르고, 한 장면 안에서 섞지 않는다. 플레이어 캐릭터의 생각·감정·대사·다음 행동은 쓰지 않는다 — 플레이어가 쓴 것만 그대로 따른다.
+- 끝은 다음 행동을 부르는 구체적인 순간(누군가의 말, 다가오는 기척, 손에 남은 물건)에서 멈춘다. "어떻게 하시겠습니까?" 같은 질문, 선택지 나열, 요약 문장으로 끝내지 않는다.
+- 마크다운 제목·목록·굵은 글씨, 게임·AI·프롬프트에 대한 메타 발언은 쓰지 않는다.
+
+━ 주도권 ━
+- 플레이어가 자기 캐릭터의 행동·이동·선택을 쓰면 그대로 일어난 일로 받아 이어 쓴다. 대신 막지 않는다. 막을 수 있는 건 다른 인물이 자기 뜻으로 거절하는 경우와, 장면과 전혀 이어지지 않는 갑작스러운 비약뿐이다.
+- 플레이어가 묻지 않은 습격·사건·새 인물을 끼워 넣지 않는다. 플레이어가 쓴 순서대로 처리한다.
+- 플레이어 캐릭터는 [현재 상태]의 이름·소속을 가진 바로 그 인물이다. 다른 인물의 시점을 묘사해도 정체가 바뀌지 않으며, 자기 자신을 적으로 세우지 않는다.
+
+━ 싸움 — 전투 화면은 없다. 전부 서술로 ━
+- 싸움이 시작되면 그 응답 끝에 [[대치 위험도 상대 이름]]을 붙인다(위험도: 약함·보통·강함·위험). 원작에 없는 상대면 [[대치 보통 칼잡이 강도 | 녹슨 칼을 든 뒷골목 강도]]처럼 | 뒤에 한 줄 설명.
+- [대치 중]이면 한 응답에 한두 합씩만 서술하고 플레이어의 다음 행동을 기다린다. 결판까지 한 번에 몰아 쓰지 않는다. 단, 플레이어가 결과까지 적으면 받아들이고 대가는 현실적으로 남긴다.
+- 체급을 따진다: [현재 상태]의 위상과 상대의 위험도를 비교해, 차이가 크면 시도가 쉽게 통하지 않는다. 체력이 낮으면 몸이 무겁고 시야가 흐려진다.
+- 맞은 만큼 그때그때 [[체력 -N]]. 끝나면 [[결판 승리]] · [[결판 패배]] · [[결판 도주]] · [[결판 화해]] 중 하나. 이긴 뒤 챙긴 것은 [[돈 +금액]], 의뢰·사건 해결이면 [[실적 +1~3]].
+- 말이 통하지 않는 상대(청소부·뒤틀림·환상체·괴물)와는 화해하지 않는다. 임무로 온 암살자나 원한이 깊은 상대는 쉽게 물러서지 않는다.
+
+━ 상태 태그 — 서술을 마친 뒤 마지막 줄들에. 실제로 일어난 변화만, 상황에 맞는 만큼만 ━
+태그 값은 짧은 명사구만 쓴다. 주어·조사·서술어를 넣지 않는다. (좋음: [[직함 검지 신탁대행자]] / 나쁨: [[직함 나는 신탁대행자가 됐다]])
+  [[체력 -15]] / [[체력 +10]] — 다치거나 회복 (최대 체력의 40% 이내)
+  [[돈 +50000]] / [[돈 -30000]] — 단위 안. 뒷골목 한 끼 약 1만 안, 하급 의뢰 보수 수십만 안. 플레이어가 금액을 적었으면 그 금액 그대로
+  [[압박 +5]] 괴로운 일 / [[압박 -5]] 안도·위안 · [[평판 +3]] / [[평판 -3]] 소문 날 일
+  [[등급 7]] — 위상·급수가 올랐을 때 목표 등급(9가 가장 낮고 1이 가장 높음). "N급 해결사가 됐다"는 직함이 아니라 등급이다. 해결사가 아닌 인물이 해결사가 되면 [[소속 무소속 해결사]]도 함께
+  [[소속 츠바이 협회]] — 조직·협회·손가락에 들어가거나 나올 때. 이름: 뒷골목 무소속 · 무소속 해결사 · 뒷골목 조직원 · 날개 소속 깃털 · 츠바이/시/리우/하나/트레스/섕크/세븐/에잇/제뱌찌/디에치/외우피 협회 · 엄지 · 검지 · 중지 · 약지 · 소지
+  [[직함 검지 신탁대행자]] — 지금 소속과 이어지는 직함·역할이 바뀔 때 (협회 과장, 조직 보스, 사무소 소장 등)
+  [[실적 +2]] — 의뢰를 끝내거나 사건을 해결하는 등 눈에 띄는 공을 세웠을 때만 (최대 3). 대화·이동·휴식만으로는 주지 않는다
+  [[승격 4]] — W사 정리 요원 승격 (1~5)
+  [[획득 이름]] — 원작의 무기·유물·기법을 얻을 때 (예: 카두세우스, 천퇴성도, 팔레르모, 레바테인, 붉은안개의 책, E.G.O)
+  [[뒤틀림]] / [[해소]] / [[혈귀화 7]]
+  삶마다: 혈귀 [[권속 +1]] [[피주머니 +1]] [[피 +3]] · 공방 [[공방 제작 검]] [[공방 판매]] · 특색 이름 [[특색 백색번개]] · 해결사 [[사무소 이름]] [[사무소 설립 이름]] [[동료 고용 5급]] · 누구나 [[집 구입]] [[둥지 이주]]
+  [[일행 합류 이름]] / [[일행 대기 이름]] / [[일행 이탈 이름]] — 실제로 함께 움직이기 시작하거나 떨어질 때만. 여러 명은 쉼표, 최대 6명
+위치 — [현재 상태]의 위치가 사실이다. 서술에서도 그 구·회사 이름을 그대로 쓴다(A사=1구 … K사=11구 … Y사=25구).
+  [[장소 폐공장 창고]] — 같은 구 안에서 실제로 자리를 옮겼을 때만. 건물·가게·거리 이름을 짧게. 매 응답마다 다시 적지 않는다
+  [[이동 둥지]] / [[이동 뒷골목]] / [[이동 외곽]] / [[이동 12구]] / [[이동 12구 둥지]] — 플레이어가 실제로 그곳에 갔을 때만. 말로 언급하거나 계획만 세운 곳으로 옮기지 않는다
+시간 — 대화만으로는 흐르지 않는다. 행동에 분명한 소요 시간이 있거나 플레이어가 시간 경과를 적었을 때만: [[시간 +90]](분) · [[시간 아침]] · [[시간 오후]] · [[시간 저녁]] · [[시간 밤]] · [[시간 다음]] · [[시간 3일]] · [[시간 1주]]
+선택 — [선택지]와 플레이어의 행동이 분명히 같으면 [[선택 번호]]. [메뉴 행동]과 같으면 [[행동 번호]].
+기억 — 새 인물의 이름·직급, 관계 변화, 약속, 빚처럼 오래 기억할 사실은 [[기억 짧은 문장]] (한 번에 1~3개, 이미 있는 것은 다시 쓰지 않음)
+요약 — 모든 응답의 맨 마지막 줄에 [[요약 이번 장면에서 실제로 일어난 일 한 문장]]을 반드시 붙인다. 누가·어디서·무엇을 했고 무엇이 바뀌었는지 40자 안팎으로.
+
+━ 이야기 밖 정정(OOC) ━
+입력이 괄호로 감싸였거나 //·OOC로 시작하면 플레이어가 이야기 밖에서 상태나 설정을 바로잡는 것이다. 장면을 진행하지 말고 한두 문장으로 확인한 뒤 그에 맞는 태그를 붙인다. (예: "(지금 위치는 U사 뒷골목이야)" → [[이동 21구 뒷골목]], "(나 1급 해결사야)" → [[등급 1]])
+
+━ 원작 ━
+- 원작 인물은 이야기의 시점과 관계에 맞게 등장시킨다. 과거·미래·거울 인격·균열의 잔영을 구분하고, 죽은 인물을 설명 없이 되살리지 않는다. 매번 제공되는 [원작과 이번 삶을 구분하는 기준]을 따른다.
+- 손가락 직급은 원작 명칭만: 엄지 — 솔다토 · 카포(I~IIII) · 언더보스 / 검지 — 수행자 · 전령 · 대행자 · 신탁대행자 / 중지 — 작은 아우 · 큰 아우 · 작은 형님 · 큰 형님(누님) / 약지 — 스튜던트 · 도슨트 · 마에스트로 / 거미집 — 아비 · 제자. 없는 직급을 만들지 않는다.
+- 뇌횡 — 동부 엄지 H사 지부의 카포 IIII(콰르토), 동부십검, 이명 '삽시호천퇴성', 호표탄을 장전하는 칼 천퇴성도. 거미집 시절 료슈(요시히데)의 외부 검술 강사, 어린 아라야가 '삼촌'이라 부르길 바랐다(사적 호칭). 서남 방언.
+- 이전 대화와 기억 메모는 이번 삶의 기록일 뿐 원작 설정의 근거가 아니다. 원작과 어긋난 이전 오류는 되풀이하지 않는다.`;
+aiSystemFor = function (history) { return AI_SYSTEM_V2 + aiCanonContext(history); };
+
+/* ---------- 7. 화면 — 상태 칩·사건 카드·입력창 ---------- */
+(() => {
+  const row = document.querySelector('#topbar .bar-row');
+  row.insertAdjacentHTML('beforeend', '<span id="aiFx"></span>');
+  const hpStat = $('#sHp') && $('#sHp').closest('.stat'); if (hpStat) { hpStat.classList.add('hp-stat'); hpStat.insertAdjacentHTML('beforeend', '<i class="hp-mini"><i></i></i>'); }
+  const _rtV2 = renderTop;
+  renderTop = function () {
+    const r = _rtV2.apply(this, arguments);
+    try {
+      if (S) aiFixSavedTitle();
+      const on = aiOn();
+      document.body.classList.toggle('ai-v2', on);
+      if (!on || !S) return r;
+      if (hpStat) { const p = Math.max(0, Math.min(1, S.hp / S.maxHp)); hpStat.style.setProperty('--hp', (p * 100).toFixed(0) + '%'); hpStat.classList.toggle('low', p <= 0.3); }
+      const fx = [];
+      if (S.aiThreat) fx.push(`<span class="chip threat">⚔ ${escAI(S.aiThreat.names.join(', '))}</span>`);
+      if ((S.aiParty || []).length) fx.push(`<span class="chip">👥 ${escAI(S.aiParty.join(', '))}</span>`);
+      $('#aiFx').innerHTML = fx.join('');
+    } catch (_) {}
+    return r;
+  };
+  // 사건이 떠도 선택지는 채팅으로 — 버튼은 숨기고 서술자에게 목록만 건넨다
+  const _evV2 = showEvent;
+  showEvent = function (ev) {
+    const r = _evV2(ev);
+    if (aiOn() && T && T.awaiting) {
+      const b = $('#aiShowChoices'); if (b) b.remove();
+      const box = $('#event .choices'); if (box) box.classList.add('hidden');
+      const tm = $('#evTimer'); if (tm) tm.textContent = '채팅으로 대응하세요 — 행동이 선택지와 같으면 서술자가 그대로 고릅니다.';
+    }
+    return r;
+  };
+  // 입력창: 안내 줄과 「다음 시간대로」 버튼 대신 자리표시 글로
+  const input = $('#aiInput');
+  if (input) input.setAttribute('aria-label', '행동·대사 입력');
+  const hint = document.querySelector('#aiBar .hint');
+  if (hint) hint.innerHTML = '시간·이동·직급·돈·동료·싸움 모두 채팅으로 · 상태가 틀렸다면 <b>(괄호)</b>로 바로잡기 · 📜 기억 · ⚙ 설정';
+  const send = $('#aiSend'); if (send) send.setAttribute('aria-label', '보내기');
+  const _ngV2 = newGame;
+  newGame = function (ch) {
+    const r = _ngV2(ch);
+    if (S && S.aiMode) { S.aiStory = []; S.aiThreat = null; aiThreatCb = null; }
+    renderTop(); return r;
+  };
+})();
+</script>
+<style>
+/* =========================================================
+   서술 모드 v2 화면 — 읽기 좋은 한 기둥, 정돈된 상태 칩, 대화형 입력창
+========================================================= */
+body.ai-v2 #combat,body.ai-v2 .speed,body.ai-v2 .turns,body.ai-v2 .timer,body.ai-v2 #nextBtn,body.ai-v2 #aiNext,body.ai-v2 #deckBtn,
+body.ai-v2 #event .choices,body.ai-v2 #aiShowChoices,body.ai-v2 #messageJump:empty{display:none!important}
+
+/* 상단: 1줄 — 시각 · 위치 · 메뉴 / 2줄 — 상태 칩 */
+body.ai-v2 #topbar{padding:8px 0 7px;border-bottom:1px solid var(--line);box-shadow:0 1px 0 color-mix(in srgb,var(--gold) 55%,transparent),0 10px 24px rgba(0,0,0,.35)}
+body.ai-v2 #topbar .wrap{max-width:820px}
+body.ai-v2 .bar-row{gap:6px 8px;font-size:13px;align-items:center}
+body.ai-v2 #clock{font-size:15px;letter-spacing:.6px}
+body.ai-v2 #sLoc{font-size:13.5px;color:var(--text)!important;opacity:.9}
+body.ai-v2 #sLoc::before{content:'';display:inline-block;width:6px;height:6px;margin:0 7px 2px 2px;background:var(--gold);transform:rotate(45deg)}
+body.ai-v2 #menuToggle{clip-path:none;border:1px solid var(--line);background:transparent;padding:4px 12px;font-size:12.5px}
+body.ai-v2 .bar-row > .stat:not(#clock):not(#sLoc):not(.role-stat):not(:empty),body.ai-v2 #aiFx .chip{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--panel2);border:1px solid var(--line);font-size:12.5px;line-height:1.35;
+  clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%)}
+body.ai-v2 .bar-row .stat b{font-family:var(--num);font-weight:600}
+body.ai-v2 .hp-stat{position:relative;padding-bottom:6px!important}
+body.ai-v2 .hp-mini{position:absolute;left:10px;right:10px;bottom:3px;height:2px;background:var(--hb-bg)}
+body.ai-v2 .hp-mini > i{display:block;height:100%;width:var(--hp,100%);background:var(--gold);transition:width .4s}
+body.ai-v2 .hp-stat.low .hp-mini > i{background:var(--red)}
+body.ai-v2 .hp-stat.low b{color:var(--red)!important}
+body.ai-v2 .role-stat{font-size:12px!important}
+body.ai-v2 #aiFx{display:contents}
+body.ai-v2 #aiFx .chip{order:5}
+body.ai-v2 #aiFx .chip.threat{border-color:var(--red);color:var(--text);background:color-mix(in srgb,var(--red) 16%,var(--panel2))}
+body:not(.ai-v2) #aiFx,body:not(.ai-v2) .hp-mini{display:none}
+
+/* 이야기: 가운데 기둥, 넉넉한 줄 간격 */
+body.ai-v2 .wrap{max-width:820px}
+body.ai-v2 #day > #log{padding:22px 26px 26px;font-size:16px;line-height:1.95;background-color:var(--panel)}
+body.ai-v2 .ai-line .ai-text{color:var(--text);letter-spacing:.1px;word-break:keep-all}
+body.ai-v2 .ai-text .pgap{height:.85em}
+body.ai-v2 .ai-line:has(.ai-text){margin:6px 0 4px}
+/* 내 입력: 오른쪽, 호박색 테두리 */
+body.ai-v2 .ai-line:has(.ai-me){margin:22px 0 10px}
+body.ai-v2 .ai-line .ai-me{background:color-mix(in srgb,var(--gold) 9%,var(--panel2));border:1px solid color-mix(in srgb,var(--gold) 45%,var(--line));color:var(--text);
+  font-size:15px;padding:8px 14px;max-width:80%;box-shadow:none}
+/* 상태 변화: 한 줄에 이어지는 작은 칩 */
+body.ai-v2 #log > .l-good,body.ai-v2 #log > .l-bad,body.ai-v2 #log > .l-choice,body.ai-v2 #log > .l-day{
+  display:inline-flex;align-items:center;max-width:100%;margin:4px 6px 4px 0;padding:2px 11px;font-size:12.5px;line-height:1.55;font-family:inherit;font-weight:500;letter-spacing:0;
+  border:1px solid var(--line);background:var(--panel2);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);text-align:left}
+body.ai-v2 #log > .l-day::before,body.ai-v2 #log > .l-day::after{content:none!important}
+body.ai-v2 #log > .l-good{border-color:color-mix(in srgb,var(--green,#6fbf73) 55%,var(--line))}
+body.ai-v2 #log > .l-bad{border-color:color-mix(in srgb,var(--red) 60%,var(--line))}
+body.ai-v2 #log > .l-day{border-color:color-mix(in srgb,var(--gold) 60%,var(--line));color:var(--gold)}
+body.ai-v2 #log > .ai-threat{border-color:var(--red);background:color-mix(in srgb,var(--red) 14%,var(--panel2));color:var(--text)}
+body.ai-v2 #log > .l-sys{display:block;font-size:12.5px;line-height:1.65;color:var(--dim);opacity:1;border-left:2px solid var(--line);padding:1px 0 1px 10px;margin:6px 0}
+body.ai-v2 #log > .l-turn,body.ai-v2 #log > .l-night{color:var(--gold);font-family:var(--num);letter-spacing:2px;font-size:12px}
+/* 사건: 장면 카드 */
+body.ai-v2 #day > #event{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--red);padding:14px 18px}
+body.ai-v2 #event h3{font-size:16px;margin:0 0 6px}
+body.ai-v2 #event p{font-size:14.5px;line-height:1.8}
+body.ai-v2 #evTimer{font-size:12px;color:var(--dim);margin-top:6px}
+
+/* 입력창: 하나의 상자 안에 글칸과 버튼 */
+body.ai-v2 #aiBar{background:linear-gradient(180deg,transparent,var(--bg) 22%);border-top:none;padding:14px 12px 10px}
+body.ai-v2 #aiBar .in{max-width:820px;background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--gold);padding:6px;gap:6px;align-items:flex-end;box-shadow:var(--shadow)}
+body.ai-v2 #aiInput{background:transparent;border:none;padding:10px 10px;font-size:15.5px;line-height:1.55;min-height:44px}
+body.ai-v2 #aiInput:focus{outline:none}
+body.ai-v2 #aiBar .in:focus-within{border-color:color-mix(in srgb,var(--gold) 60%,var(--line))}
+body.ai-v2 #aiSend{min-width:84px;min-height:44px;white-space:nowrap}
+body.ai-v2 #aiMem,body.ai-v2 #aiGear{min-width:44px;min-height:44px;padding:0 10px;background:transparent;border-color:transparent;clip-path:none;opacity:.75}
+body.ai-v2 #aiMem:hover,body.ai-v2 #aiGear:hover{opacity:1;background:var(--panel2);color:var(--text)}
+body.ai-v2 #aiBar .hint{max-width:820px;margin:6px auto 0;text-align:center;font-size:11.5px;color:var(--dim)}
+body.ai-v2 #aiBar .hint b{color:var(--gold);font-weight:600}
+
+@media (max-width:600px){
+  body.ai-v2 #topbar .wrap{padding-left:12px;padding-right:12px}
+  body.ai-v2 .bar-row{gap:5px 6px}
+  body.ai-v2 #clock{font-size:14px}
+  body.ai-v2 .bar-row > .stat:not(#clock):not(#sLoc):not(.role-stat):not(:empty),body.ai-v2 #aiFx .chip{font-size:11.5px;padding:2px 8px}
+  body.ai-v2 #day > #log{padding:14px 14px 18px;font-size:15.5px;line-height:1.85}
+  body.ai-v2 .ai-line .ai-me{max-width:88%;font-size:14.5px}
+  body.ai-v2 #aiBar{padding:10px 8px 8px}
+  body.ai-v2 #aiBar .in{flex-wrap:nowrap!important}
+  body.ai-v2 #aiInput{flex:1 1 auto!important;height:48px}
+  body.ai-v2 #aiSend{min-width:64px;padding:0 10px}
+  body.ai-v2 #aiMem,body.ai-v2 #aiGear{min-width:38px;padding:0 4px}
+  body.ai-v2 #aiBar .hint{display:none}
+}
+</style>
+<script>
+/* =========================================================
+   서술 모드 — 직접 설정해서 시작
+   무작위 뽑기는 그대로 두고, 출신·소속·등급·태어난 곳·자금·체력을 골라 시작한다.
+   출신은 게임의 buildOrigin()으로 만들고, 고른 항목만 덮어쓴다 (비워 둔 칸은 출신 그대로)
+========================================================= */
+(() => {
+  const KEY = 'sht_custom';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) { return {}; } };
+  const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (_) {} };
+  const OUT = { area: 'outskirts', label: '외곽', note: '괴물과 버려진 것들이 득실거리는 도시 바깥' };
+  const isAi = () => $('#heroMode') && $('#heroMode').value === 'ai';
+
+  // 시작 화면에 버튼 — 서술 모드일 때만 보인다
+  const bc = document.querySelector('.birth-controls');
+  bc.insertAdjacentHTML('afterend', '<button id="customBtn" type="button" class="hidden">직접 설정해서 시작 — 출신·소속·등급·장소·자금</button>');
+  const btn = $('#customBtn');
+  const sync = () => btn.classList.toggle('hidden', !isAi());
+  $('#heroMode').addEventListener('change', sync); sync();
+
+  // 고른 값을 출신에 덮어쓴다
+  function build(v) {
+    const o = ORIGINS.find(x => x.id === v.origin) || ORIGINS[0];
+    const fingerKey = o.variant === 'finger' && FINGER_KEYS.includes(v.aff) ? v.aff : undefined;
+    const ch = buildOrigin(o, fingerKey);
+    if (v.aff && !fingerKey && !AFFS[ch.aff].locked && AFFS[v.aff] && v.aff !== ch.aff) {
+      ch.aff = v.aff; delete ch.affTitle;
+      if (v.aff === 'gang') ch.gangFinger = ch.gangFinger || pick(GANG_FINGERS); else delete ch.gangFinger;
+    }
+    const g = +v.grade;
+    if (g >= 1 && g <= 9) {
+      ch.grade = g;
+      if (ch.vampRank) ch.vampRank = g;
+      if (ch.id === 'fixer') ch.name = ch.name.replace(/^\d급/, g + '급');
+    }
+    const money = v.money ? aiReadAmount(String(v.money)) : null;
+    if (money !== null && money >= 0) ch.money = money;
+    const hp = parseInt(v.hp, 10);
+    if (hp >= 10 && hp <= 2000) { ch.hp = hp; ch.fixedHp = hp; }   // 직접 적은 체력은 위상 보정·외곽 보너스 없이 그대로
+    if (v.place === 'out') ch.loc = { ...OUT };
+    else if (+v.place >= 1 && +v.place <= 25) {
+      const n = +v.place, L = String.fromCharCode(64 + n), a = v.area === '둥지' ? '둥지' : '뒷골목';
+      ch.loc = { area: a, n, letter: L, label: cityLabel(n, a), note: WING_NOTE[L] || '' };
+    } else ch.loc = rollBirthplace(ch);
+    if (ch.deck.includes('col_sig') && !ch.colorCard) ch.colorCard = JSON.parse(JSON.stringify(CARDS.col_sig));
+    ch.custom = true;
+    return ch;
+  }
+
+  function form() {
+    const v = load(), box = $('#rollResult');
+    const tiers = [...new Set(ORIGINS.map(o => o.tier))].sort();
+    const originOpts = tiers.map(t => `<optgroup label="${TIER_NAME[t] || ''}">${ORIGINS.filter(o => o.tier === t).map(o => `<option value="${o.id}">${escAI(o.label || o.name)}</option>`).join('')}</optgroup>`).join('');
+    const affOpts = '<option value="">출신 그대로</option>' + Object.entries(AFFS).filter(([k, a]) => !a.locked && k !== 'color').map(([k, a]) => `<option value="${k}">${escAI(a.name)}</option>`).join('');
+    const gradeOpts = '<option value="">출신 그대로</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(g => `<option value="${g}">${g}급 · 위상 ${10 - g}단계${g === 1 ? ' (가장 높음)' : g === 9 ? ' (가장 낮음)' : ''}</option>`).join('');
+    const placeOpts = '<option value="">무작위</option><option value="out">외곽</option>' + Array.from({ length: 25 }, (_, i) => `<option value="${i + 1}">${i + 1}구 ${String.fromCharCode(65 + i)}사</option>`).join('');
+    box.innerHTML = `<div class="origin custom-start">
+      <span class="tier">직접 설정</span>
+      <h2>원하는 삶으로 시작한다</h2>
+      <p class="dim" style="font-size:13px;margin:4px 0 12px">비워 둔 칸은 고른 출신의 기본값을 따릅니다. 이름·성별은 위 칸에서 정합니다. 시작한 뒤에도 채팅으로 바꿀 수 있습니다.</p>
+      <div class="ai-form cs-grid">
+        <label>출신 <select id="csOrigin">${originOpts}</select></label>
+        <label>소속 <select id="csAff">${affOpts}</select></label>
+        <label>등급 <select id="csGrade">${gradeOpts}</select></label>
+        <label>태어난 곳 <span class="cs-row"><select id="csPlace">${placeOpts}</select><select id="csArea"><option>뒷골목</option><option>둥지</option></select></span></label>
+        <label>자금 <input id="csMoney" placeholder="예: 500만, 3억 (비우면 기본)" autocomplete="off"></label>
+        <label>체력 <input id="csHp" type="number" min="10" max="2000" placeholder="비우면 기본"></label>
+      </div>
+      <div id="csPrev" class="cs-prev"></div>
+      <div class="cs-btns"><button id="csGo" type="button">이 설정으로 시작한다</button><button id="csCancel" type="button">취소</button></div></div>`;
+    const set = (id, val) => { if (val !== undefined && val !== null) $(id).value = val; };
+    set('#csOrigin', v.origin || 'rat'); set('#csAff', v.aff || ''); set('#csGrade', v.grade || ''); set('#csPlace', v.place || ''); set('#csArea', v.area || '뒷골목'); set('#csMoney', v.money || ''); set('#csHp', v.hp || '');
+    const read = () => ({ origin: $('#csOrigin').value, aff: $('#csAff').value, grade: $('#csGrade').value, place: $('#csPlace').value, area: $('#csArea').value, money: $('#csMoney').value.trim(), hp: $('#csHp').value.trim() });
+    const preview = () => {
+      const r = read(), o = ORIGINS.find(x => x.id === r.origin);
+      const locked = o && (o.aff && AFFS[o.aff] && AFFS[o.aff].locked || o.variant === 'vampire');
+      $('#csAff').disabled = !!locked; if (locked) $('#csAff').value = '';
+      $('#csArea').disabled = !(+r.place >= 1);
+      const ch = build(read()), a = AFFS[ch.aff];
+      const badMoney = r.money && aiReadAmount(r.money) === null;
+      $('#csPrev').innerHTML = `<b>${escAI(ch.name)}</b> · 소속 ${escAI(ch.affTitle || (ch.vampRank ? `혈귀 — 제${ch.vampRank}권속` : affName(ch.aff, ch.grade, ch.gangFinger)))} · ${a.fixer ? ch.grade + '급 해결사' : '위상 ' + (10 - ch.grade) + '단계'}<br>`
+        + `태어난 곳 ${escAI(+r.place >= 1 || r.place === 'out' ? ch.loc.label : '무작위')} · 자금 ${won(ch.money)} · 체력 ${ch.hp}`
+        + (locked ? '<br><span class="dim">이 출신은 소속을 바꿀 수 없다.</span>' : '')
+        + (badMoney ? '<br><span class="l-bad">자금을 읽지 못했다 — 숫자와 만·억 단위로 적어 주세요.</span>' : '')
+        + `<div class="dim" style="margin-top:6px">${ch.intro || ''}</div>`;
+    };
+    box.querySelectorAll('select,input').forEach(el => el.addEventListener('input', preview));
+    preview();
+    $('#csCancel').onclick = () => { box.innerHTML = ''; };
+    $('#csGo').onclick = () => {
+      const r = read(); save(r);
+      $('#csGo').disabled = true;
+      newGame(build(r));
+    };
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  btn.onclick = () => { if (!aiCfg().key) { aiSettings(); return; } form(); };
+  const _tierBoostCs = tierBoost;
+  tierBoost = function () {
+    const fixed = S && S.ch && S.ch.fixedHp && !S.flags.tierBoost ? S.ch.fixedHp : 0;
+    const r = _tierBoostCs();
+    if (fixed) { S.maxHp = fixed; S.hp = fixed; }
+    return r;
+  };
+})();
+</script>
+<style>
+#customBtn{width:100%;margin-top:8px;min-height:44px;font-size:14px;background:transparent;border:1px dashed color-mix(in srgb,var(--gold) 60%,var(--line));color:var(--gold);clip-path:none}
+#customBtn:hover{background:var(--gold-soft);color:var(--gold)}
+.custom-start{max-width:720px}
+.custom-start .tier{background:var(--gold);color:var(--on-accent);font-weight:700;font-size:12px}
+.custom-start .cs-grid label{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:8px;margin:7px 0}
+.custom-start .cs-row{display:flex;gap:6px;min-width:0}
+.custom-start .cs-row select:first-child{flex:2}.custom-start .cs-row select:last-child{flex:1}
+.custom-start select:disabled{opacity:.45}
+.custom-start .cs-prev{margin:12px 0;padding:10px 12px;border-left:3px solid var(--gold);background:var(--panel2);font-size:13.5px;line-height:1.7}
+.custom-start .cs-btns{display:flex;gap:8px}
+.custom-start #csGo{flex:1;min-height:46px;background:var(--gold)!important;color:var(--on-accent)!important;border-color:var(--gold)!important;font-weight:800}
+@media (max-width:600px){.custom-start .cs-grid label{grid-template-columns:1fr;gap:4px}}
+</style>
+<!-- /NARRATIVE MODE V2 -->
 </body>
 </html>
